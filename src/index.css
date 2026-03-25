@@ -16,9 +16,7 @@ body,
 /* Force MindAR camera video visible (MindAR sets z-index:-2 by default) */
 #root video[autoplay] {
   z-index: 0 !important;
-  transform: scaleX(-1); /* mirror camera feed agar orientasi natural */
 }
 #root canvas[data-engine] {
   z-index: 1 !important;
-  transform: scaleX(-1); /* mirror canvas AR agar selaras dengan video */
 }

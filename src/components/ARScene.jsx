@@ -17,6 +17,7 @@ export default function ARScene() {
   const containerRef = useRef(null);
   const videoRef = useRef(null);
   const [muted, setMuted] = useState(true);
+  const [status, setStatus] = useState('Initializing...');
 
   const handleToggleMute = () => {
     const vid = videoRef.current;
@@ -29,19 +30,22 @@ export default function ARScene() {
   useEffect(() => {
     // ── Video element untuk texture ──
     const videoEl = document.createElement('video');
-    videoEl.src = import.meta.env.BASE_URL + 'assets/greeting.mp4';
     videoEl.crossOrigin = 'anonymous';
     videoEl.loop = true;
     videoEl.muted = true;
     videoEl.playsInline = true;
     videoEl.setAttribute('webkit-playsinline', '');
-    videoEl.preload = 'auto';
+    // Cek dulu apakah greeting.mp4 ada sebelum set src (hindari NotSupportedError)
+    fetch(import.meta.env.BASE_URL + 'assets/greeting.mp4', { method: 'HEAD' })
+      .then(res => { if (res.ok) videoEl.src = import.meta.env.BASE_URL + 'assets/greeting.mp4'; })
+      .catch(() => {});
     videoRef.current = videoEl;
 
     let mindarThree = null;
     let destroyed = false;
 
     const init = async () => {
+      setStatus('Loading AR engine...');
       mindarThree = new MindARThree({
         container: containerRef.current,
         imageTargetSrc: import.meta.env.BASE_URL + 'assets/targets.mind',
@@ -49,31 +53,27 @@ export default function ARScene() {
         uiLoading: 'yes',
         uiScanning: 'yes',
         uiError: 'yes',
+        filterMinCF: 0.001,
+        filterBeta: 0.01,
       });
 
       const { renderer, scene, camera } = mindarThree;
 
       const hologram = createHologram(videoEl);
 
-      // Attach ke camera bukan ke anchor →
-      // hologram tetap di posisi fixed depan kamera, tidak pivot ke image
-      hologram.position.set(0, 0, -1.4); // z negatif = di depan kamera
-      hologram.visible = false;          // sembunyikan dulu sampai target detected
-      camera.add(hologram);
-      scene.add(camera);                 // pastikan camera ada di scene
-
-      // Image tracking tetap aktif: hanya untuk trigger show/hide
       const anchor = mindarThree.addAnchor(0);
+      anchor.group.add(hologram);
 
       anchor.onTargetFound = () => {
-        hologram.visible = true;
+        setStatus('Target found!');
         videoEl.play().catch(console.warn);
       };
-      anchor.onTargetLost = () => {
-        hologram.visible = false;
+      anchor.onTargetLost  = () => {
+        setStatus('Scanning... (arahkan ke cover album)');
         videoEl.pause();
       };
 
+      setStatus('Starting camera...');
       await mindarThree.start();
 
       if (destroyed) {
@@ -82,6 +82,8 @@ export default function ARScene() {
         return;
       }
 
+      setStatus('Scanning... (arahkan ke cover album)');
+
       // Fix z-index video MindAR
       const arVideo = containerRef.current?.querySelector('video[autoplay]');
       const arCanvas = containerRef.current?.querySelector('canvas');
@@ -89,22 +91,21 @@ export default function ARScene() {
       if (arCanvas) arCanvas.style.zIndex = '1';
 
       const baseY = hologram.position.y;
-      const baseZ = hologram.position.z;
+      const _billboardQ = new THREE.Quaternion();
       renderer.setAnimationLoop((time) => {
-        const t = time * 0.001;
-        // Float naik-turun
-        hologram.position.y = baseY + Math.sin(t * 1.1) * 0.025;
-        // Sway kiri-kanan sangat subtle
-        hologram.position.x = Math.sin(t * 0.6) * 0.015;
-        // Slight breathe: maju-mundur
-        hologram.position.z = baseZ + Math.sin(t * 0.8) * 0.012;
-        // Subtle Y rotation (gizmo effect)
-        hologram.rotation.y = Math.sin(t * 0.5) * 0.04;
+        hologram.position.y = baseY + Math.sin(time * 0.0012) * 0.03;
+        // Billboard: selalu hadap kamera
+        anchor.group.getWorldQuaternion(_billboardQ);
+        _billboardQ.invert();
+        hologram.quaternion.copy(_billboardQ).multiply(camera.quaternion);
         renderer.render(scene, camera);
       });
     };
 
-    init().catch(console.error);
+    init().catch((err) => {
+      console.error(err);
+      setStatus('ERROR: ' + (err?.message ?? String(err)));
+    });
 
     return () => {
       destroyed = true;
@@ -121,6 +122,25 @@ export default function ARScene() {
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }} />
+
+      {/* Debug status overlay */}
+      <div style={{
+        position: 'absolute',
+        top: 12,
+        left: 12,
+        zIndex: 300,
+        background: 'rgba(0,0,0,0.55)',
+        color: status.startsWith('ERROR') ? '#ff4d4d' : '#00e5ff',
+        fontSize: 12,
+        fontFamily: 'monospace',
+        padding: '4px 10px',
+        borderRadius: 6,
+        pointerEvents: 'none',
+        maxWidth: 'calc(100% - 24px)',
+        wordBreak: 'break-word',
+      }}>
+        {status}
+      </div>
 
       <button
         onClick={handleToggleMute}
@@ -244,9 +264,6 @@ function createHologram(videoEl) {
     ));
   }
 
-  group.position.set(0, 0.08, 0.22);
-  // Canvas CSS di-mirror (scaleX -1), jadi balik group di Three.js
-  // supaya teks & video terbaca benar setelah double-negation
-  group.scale.x = -1;
+  group.position.set(0, 0.08, 0);
   return group;
 }
