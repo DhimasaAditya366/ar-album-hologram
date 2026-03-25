@@ -13,6 +13,17 @@ body,
   background: #000;
 }
 
+/* Scan line animation */
+@keyframes scanline {
+  0%   { top: 0%; opacity: 1; }
+  95%  { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+
 /* Force MindAR camera video visible (MindAR sets z-index:-2 by default) */
 #root video[autoplay] {
   z-index: 0 !important;

@@ -16,10 +16,20 @@ import * as THREE from 'three';
 import { MindARThree } from 'mind-ar/dist/mindar-image-three.prod.js';
 
 export default function ARScene() {
-  const containerRef = useRef(null);
-  const videoRef     = useRef(null);
-  const [muted,  setMuted]  = useState(true);
-  const [status, setStatus] = useState('Initializing...');
+  const containerRef   = useRef(null);
+  const videoRef       = useRef(null);
+  const hologramRef    = useRef(null);
+  const [muted,    setMuted]   = useState(true);
+  const [status,   setStatus]  = useState('Initializing...');
+  const [spawned,  setSpawned] = useState(false);
+  const [ready,    setReady]   = useState(false);  // true setelah kamera jalan
+
+  const handleClose = () => {
+    if (hologramRef.current) hologramRef.current.visible = false;
+    videoRef.current?.pause();
+    setSpawned(false);
+    setStatus('Scanning... (arahkan ke cover album)');
+  };
 
   /* ── Mute toggle ── */
   const handleToggleMute = () => {
@@ -65,6 +75,7 @@ export default function ARScene() {
     const hologramGroup = createHologram(videoEl);
     hologramGroup.visible = false;
     overlayScene.add(hologramGroup);
+    hologramRef.current = hologramGroup;
 
     /* ── Gyroscope ── */
     let gyroX = 0, gyroY = 0;   // target rotation (rad)
@@ -106,7 +117,7 @@ export default function ARScene() {
         imageTargetSrc: import.meta.env.BASE_URL + 'assets/targets.mind',
         maxTrack: 1,
         uiLoading: 'yes',
-        uiScanning: 'yes',
+        uiScanning: 'no',   // kita pakai overlay scanning sendiri
         uiError:    'yes',
         filterMinCF: 0.001,
         filterBeta:  0.01,
@@ -115,21 +126,20 @@ export default function ARScene() {
       // Anchor hanya sebagai trigger — tidak add hologram ke anchor
       const anchor = mindarThree.addAnchor(0);
       anchor.onTargetFound = () => {
-        setStatus('Target found!');
+        if (hologramGroup.visible) return; // sudah spawned, skip
         hologramGroup.visible = true;
+        setSpawned(true);
+        setStatus('Target found!');
         videoEl.play().catch(console.warn);
       };
-      anchor.onTargetLost = () => {
-        setStatus('Scanning... (arahkan ke cover album)');
-        hologramGroup.visible = false;
-        videoEl.pause();
-      };
+      anchor.onTargetLost = () => {};
 
       setStatus('Starting camera...');
       await mindarThree.start();
       if (destroyed) { mindarThree.stop().catch(() => {}); return; }
 
       setStatus('Scanning... (arahkan ke cover album)');
+      setReady(true);
 
       // Fix z-index: video di bawah, overlay canvas MindAR di tengah
       const arVideo  = container.querySelector('video[autoplay]');
@@ -201,6 +211,58 @@ export default function ARScene() {
       }}>
         {status}
       </div>
+
+      {/* Scanning overlay — muncul saat kamera siap & hologram belum spawn */}
+      {ready && !spawned && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 50,
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          pointerEvents: 'none',
+        }}>
+          {/* Corner brackets */}
+          {[
+            { top: 0,    left: 0,    borderTop: '3px solid #fff', borderLeft:  '3px solid #fff' },
+            { top: 0,    right: 0,   borderTop: '3px solid #fff', borderRight: '3px solid #fff' },
+            { bottom: 0, left: 0,    borderBottom: '3px solid #fff', borderLeft:  '3px solid #fff' },
+            { bottom: 0, right: 0,   borderBottom: '3px solid #fff', borderRight: '3px solid #fff' },
+          ].map((s, i) => (
+            <div key={i} style={{ position: 'absolute', width: 28, height: 28, ...s }} />
+          ))}
+          {/* Scan line */}
+          <div style={{
+            position: 'absolute', left: 0, right: 0, height: 2,
+            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.7), transparent)',
+            animation: 'scanline 2s linear infinite',
+          }} />
+          {/* Label */}
+          <div style={{
+            position: 'absolute', bottom: '18%',
+            color: 'rgba(255,255,255,0.85)', fontSize: 14,
+            fontFamily: 'system-ui, sans-serif',
+            textShadow: '0 1px 6px rgba(0,0,0,0.9)',
+            animation: 'blink 2s ease-in-out infinite',
+          }}>
+            Arahkan ke cover album
+          </div>
+        </div>
+      )}
+
+      {/* Close / Despawn button — hanya muncul saat hologram aktif */}
+      {spawned && (
+        <button onClick={handleClose} style={{
+          position: 'absolute', bottom: 28, left: 20, zIndex: 300,
+          background: 'rgba(255,50,50,0.15)',
+          border: '1px solid rgba(255,80,80,0.7)',
+          color: '#ff6060', borderRadius: 10,
+          padding: '8px 20px', fontSize: 13,
+          fontFamily: 'system-ui, sans-serif', cursor: 'pointer',
+          backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+          letterSpacing: '0.04em', userSelect: 'none', WebkitUserSelect: 'none',
+        }}>
+          ✕ Tutup
+        </button>
+      )}
 
       {/* Mute button */}
       <button onClick={handleToggleMute} style={{
@@ -295,3 +357,4 @@ function createHologram(videoEl) {
 
   return group;
 }
+
