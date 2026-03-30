@@ -77,25 +77,7 @@ export default function ARScene() {
     overlayScene.add(hologramGroup);
     hologramRef.current = hologramGroup;
 
-    /* ── Load FBX model ── */
-    const fbxLoader = new FBXLoader();
-    fbxLoader.setResourcePath(import.meta.env.BASE_URL + 'assets/');
-    fbxLoader.load(
-      import.meta.env.BASE_URL + 'assets/model.fbx',
-      (fbx) => {
-        fbx.scale.setScalar(0.01); // cm → meter, sesuaikan jika perlu
-        hologramGroup.add(fbx);
-      },
-      undefined,
-      (err) => { setStatus('ERROR load FBX: ' + (err?.message ?? err)); }
-    );
-
-    /* ── Video plane — layar yang nempel di front face FBX ── */
-    // VW/VH: sesuaikan dengan ukuran front face model FBX
-    // PZ: posisi Z (positif = maju ke arah kamera), sesuaikan agar pas di permukaan FBX
-    const VW = 1.4, VH = 2.0, PZ = 0.16;
-
-    // Canvas dummy (tampil selagi greeting.mp4 belum ada)
+    /* ── Canvas dummy texture (dibuat sekali, dipakai di screenMat) ── */
     const dummyCanvas = document.createElement('canvas');
     dummyCanvas.width = 512; dummyCanvas.height = 720;
     const ctx = dummyCanvas.getContext('2d');
@@ -109,9 +91,6 @@ export default function ARScene() {
 
     const screenTex = new THREE.CanvasTexture(dummyCanvas);
     const screenMat = new THREE.MeshBasicMaterial({ map: screenTex, side: THREE.FrontSide });
-    const screenMesh = new THREE.Mesh(new THREE.PlaneGeometry(VW, VH), screenMat);
-    screenMesh.position.set(0, 0, PZ);
-    hologramGroup.add(screenMesh);
 
     // Swap ke video texture saat greeting.mp4 siap
     videoEl.addEventListener('loadeddata', () => {
@@ -121,6 +100,32 @@ export default function ARScene() {
       screenMat.map = vTex;
       screenMat.needsUpdate = true;
     }, { once: true });
+
+    /* ── Load FBX model ── */
+    const fbxLoader = new FBXLoader();
+    fbxLoader.setResourcePath(import.meta.env.BASE_URL + 'assets/');
+    fbxLoader.load(
+      import.meta.env.BASE_URL + 'assets/model.fbx',
+      (fbx) => {
+        fbx.scale.setScalar(0.01); // cm → meter
+        hologramGroup.add(fbx);
+
+        // Auto-size video plane berdasarkan bounding box FBX
+        const box  = new THREE.Box3().setFromObject(fbx);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        // size.x = lebar, size.y = tinggi, size.z = kedalaman
+        // Video plane di front face (+Z), posisi Z = setengah kedalaman model
+        const screenMesh = new THREE.Mesh(
+          new THREE.PlaneGeometry(size.x, size.y),
+          screenMat
+        );
+        screenMesh.position.set(0, 0, size.z / 2 + 0.001);
+        hologramGroup.add(screenMesh);
+      },
+      undefined,
+      (err) => { setStatus('ERROR load FBX: ' + (err?.message ?? err)); }
+    );
 
     /* ── Gyroscope ── */
     let gyroX = 0, gyroY = 0;   // target rotation (rad)
