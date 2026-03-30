@@ -14,6 +14,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { MindARThree } from 'mind-ar/dist/mindar-image-three.prod.js';
 
 export default function ARScene() {
@@ -66,11 +67,18 @@ export default function ARScene() {
     overlayRenderer.setClearColor(0x000000, 0);
     overlayRenderer.outputEncoding = THREE.sRGBEncoding;
     overlayRenderer.physicallyCorrectLights = true;
+
+    /* ── Environment map (diperlukan agar material PBR/metalik GLB tidak hitam) ── */
+    const pmremGenerator = new THREE.PMREMGenerator(overlayRenderer);
+    const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+    pmremGenerator.dispose();
+
     overlayRenderer.domElement.style.cssText =
       'position:absolute;top:0;left:0;width:100%;height:100%;z-index:10;pointer-events:none';
     container.appendChild(overlayRenderer.domElement);
 
     const overlayScene  = new THREE.Scene();
+    overlayScene.environment = envTexture;
     const overlayCamera = new THREE.PerspectiveCamera(60, W / H, 0.01, 100);
     overlayCamera.position.set(0, 0, 2.5);
 
@@ -116,6 +124,24 @@ export default function ARScene() {
       import.meta.env.BASE_URL + 'assets/model.glb?v=' + Date.now(),
       (gltf) => {
         const model = gltf.scene;
+
+        // Pastikan material tidak pure-black: jika tidak ada texture, paksa warna putih
+        model.traverse((child) => {
+          if (child.isMesh && child.material) {
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            mats.forEach(mat => {
+              if (!mat.map && mat.color) {
+                const c = mat.color;
+                // Kalau warnanya sangat gelap (kemungkinan default hitam), paksa putih
+                if (c.r < 0.05 && c.g < 0.05 && c.b < 0.05) {
+                  mat.color.set(0xffffff);
+                }
+              }
+              mat.needsUpdate = true;
+            });
+          }
+        });
+
         hologramGroup.add(model);
 
         // Auto-size video plane berdasarkan bounding box GLB
