@@ -9,7 +9,7 @@ export default function App() {
     return <Dashboard onSelect={setVideoFile} />;
   }
 
-  const videoSrc = import.meta.env.BASE_URL + 'assets/' + videoFile;
+  const videoSrc = import.meta.env.BASE_URL + 'assets/' + encodeURIComponent(videoFile);
 
   return (
     <ARScene

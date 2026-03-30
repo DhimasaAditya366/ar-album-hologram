@@ -10,7 +10,7 @@ const AR_ITEMS = [
     id: 'ello',
     title: 'AR ello video',
     desc: 'Hologram video Ello dari Instagram',
-    videoFile: 'ello.mp4',
+    videoFile: 'greeting 2.mp4',
     icon: '🎤',
   },
 ];
