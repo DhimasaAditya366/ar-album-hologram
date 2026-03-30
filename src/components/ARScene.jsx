@@ -225,8 +225,11 @@ export default function ARScene() {
         hologramGroup.visible = true;
         setSpawned(true);
         setStatus('Target found!');
-        videoEl.currentTime = 0; // selalu mulai dari awal saat rescan
-        videoEl.play().catch(console.warn);
+        videoEl.currentTime = 0;
+        // Retry play kalau gagal (mobile kadang butuh delay setelah pause)
+        videoEl.play().catch(() => {
+          setTimeout(() => videoEl.play().catch(() => {}), 300);
+        });
       };
       anchor.onTargetLost = () => {}; // hologram tetap tampil sampai di-close
 
@@ -259,6 +262,11 @@ export default function ARScene() {
 
         // Float animation
         hologramGroup.position.y = Math.sin(t * 1.2) * 0.06;
+
+        // Force VideoTexture update setiap frame saat video playing
+        if (screenMat.map?.isVideoTexture && !videoEl.paused) {
+          screenMat.map.needsUpdate = true;
+        }
 
         overlayRenderer.render(overlayScene, overlayCamera);
       };
