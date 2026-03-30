@@ -13,16 +13,17 @@
 
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { MindARThree } from 'mind-ar/dist/mindar-image-three.prod.js';
 
 export default function ARScene() {
-  const containerRef   = useRef(null);
-  const videoRef       = useRef(null);
-  const hologramRef    = useRef(null);
-  const [muted,    setMuted]   = useState(true);
-  const [status,   setStatus]  = useState('Initializing...');
-  const [spawned,  setSpawned] = useState(false);
-  const [ready,    setReady]   = useState(false);  // true setelah kamera jalan
+  const containerRef = useRef(null);
+  const hologramRef  = useRef(null);
+  const videoRef     = useRef(null);
+  const [muted,   setMuted]   = useState(true);
+  const [status,  setStatus]  = useState('Initializing...');
+  const [spawned, setSpawned] = useState(false);
+  const [ready,   setReady]   = useState(false);
 
   const handleClose = () => {
     if (hologramRef.current) hologramRef.current.visible = false;
@@ -31,7 +32,6 @@ export default function ARScene() {
     setStatus('Scanning... (arahkan ke cover album)');
   };
 
-  /* ── Mute toggle ── */
   const handleToggleMute = () => {
     const vid = videoRef.current;
     if (!vid) return;
@@ -43,12 +43,12 @@ export default function ARScene() {
   useEffect(() => {
     const container = containerRef.current;
 
-    /* ── Video element untuk texture hologram ── */
+    /* ── Video element untuk layar di depan FBX ── */
     const videoEl = document.createElement('video');
-    videoEl.crossOrigin  = 'anonymous';
-    videoEl.loop         = true;
-    videoEl.muted        = true;
-    videoEl.playsInline  = true;
+    videoEl.crossOrigin = 'anonymous';
+    videoEl.loop        = true;
+    videoEl.muted       = true;
+    videoEl.playsInline = true;
     videoEl.setAttribute('webkit-playsinline', '');
     fetch(import.meta.env.BASE_URL + 'assets/greeting.mp4', { method: 'HEAD' })
       .then(r => { if (r.ok) videoEl.src = import.meta.env.BASE_URL + 'assets/greeting.mp4'; })
@@ -71,11 +71,55 @@ export default function ARScene() {
     const overlayCamera = new THREE.PerspectiveCamera(60, W / H, 0.01, 100);
     overlayCamera.position.set(0, 0, 2.5);
 
-    /* ── Hologram group ── */
-    const hologramGroup = createHologram(videoEl);
+    /* ── Hologram group (wrapper untuk gyro + float) ── */
+    const hologramGroup = new THREE.Group();
     hologramGroup.visible = false;
     overlayScene.add(hologramGroup);
     hologramRef.current = hologramGroup;
+
+    /* ── Load FBX model ── */
+    const fbxLoader = new FBXLoader();
+    fbxLoader.load(
+      import.meta.env.BASE_URL + 'assets/model.fbx',
+      (fbx) => {
+        fbx.scale.setScalar(0.01); // cm → meter, sesuaikan jika perlu
+        hologramGroup.add(fbx);
+      },
+      undefined,
+      (err) => { setStatus('ERROR load FBX: ' + (err?.message ?? err)); }
+    );
+
+    /* ── Video plane — layar yang nempel di front face FBX ── */
+    // VW/VH: sesuaikan dengan ukuran front face model FBX
+    // PZ: posisi Z (positif = maju ke arah kamera), sesuaikan agar pas di permukaan FBX
+    const VW = 0.75, VH = 1.10, PZ = 0.16;
+
+    // Canvas dummy (tampil selagi greeting.mp4 belum ada)
+    const dummyCanvas = document.createElement('canvas');
+    dummyCanvas.width = 512; dummyCanvas.height = 720;
+    const ctx = dummyCanvas.getContext('2d');
+    ctx.fillStyle = '#0a0a2e'; ctx.fillRect(0, 0, 512, 720);
+    ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 4;
+    ctx.strokeRect(8, 8, 496, 704);
+    ctx.fillStyle = '#00e5ff'; ctx.font = 'bold 30px sans-serif';
+    ctx.textAlign = 'center'; ctx.fillText('AR HOLOGRAM', 256, 380);
+    ctx.font = '18px sans-serif'; ctx.fillStyle = 'rgba(0,229,255,0.6)';
+    ctx.fillText('[ greeting.mp4 placeholder ]', 256, 420);
+
+    const screenTex = new THREE.CanvasTexture(dummyCanvas);
+    const screenMat = new THREE.MeshBasicMaterial({ map: screenTex, side: THREE.FrontSide });
+    const screenMesh = new THREE.Mesh(new THREE.PlaneGeometry(VW, VH), screenMat);
+    screenMesh.position.set(0, 0, PZ);
+    hologramGroup.add(screenMesh);
+
+    // Swap ke video texture saat greeting.mp4 siap
+    videoEl.addEventListener('loadeddata', () => {
+      const vTex = new THREE.VideoTexture(videoEl);
+      vTex.minFilter = THREE.LinearFilter;
+      vTex.magFilter = THREE.LinearFilter;
+      screenMat.map = vTex;
+      screenMat.needsUpdate = true;
+    }, { once: true });
 
     /* ── Gyroscope ── */
     let gyroX = 0, gyroY = 0;   // target rotation (rad)
@@ -126,13 +170,13 @@ export default function ARScene() {
       // Anchor hanya sebagai trigger — tidak add hologram ke anchor
       const anchor = mindarThree.addAnchor(0);
       anchor.onTargetFound = () => {
-        if (hologramGroup.visible) return; // sudah spawned, skip
+        if (hologramGroup.visible) return;
         hologramGroup.visible = true;
         setSpawned(true);
         setStatus('Target found!');
         videoEl.play().catch(console.warn);
       };
-      anchor.onTargetLost = () => {};
+      anchor.onTargetLost = () => {}; // hologram tetap tampil sampai di-close
 
       setStatus('Starting camera...');
       await mindarThree.start();
@@ -190,7 +234,7 @@ export default function ARScene() {
       window.removeEventListener('deviceorientation', onOrientation);
       container.removeEventListener('click', onTap);
       videoEl.pause();
-      videoEl.src     = '';
+      videoEl.src = '';
       videoRef.current = null;
     };
   }, []);
@@ -248,6 +292,18 @@ export default function ARScene() {
         </div>
       )}
 
+      {/* Mute button — selalu tampil */}
+      <button onClick={handleToggleMute} style={{
+        position: 'absolute', bottom: 28, right: 20, zIndex: 300,
+        background: 'rgba(0,229,255,0.12)', border: '1px solid rgba(0,229,255,0.65)',
+        color: '#00e5ff', borderRadius: 10, padding: '8px 18px', fontSize: 13,
+        fontFamily: 'system-ui, sans-serif', cursor: 'pointer',
+        backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+        letterSpacing: '0.04em', userSelect: 'none', WebkitUserSelect: 'none',
+      }}>
+        {muted ? '🔇 Unmute' : '🔊 Sound On'}
+      </button>
+
       {/* Close / Despawn button — hanya muncul saat hologram aktif */}
       {spawned && (
         <button onClick={handleClose} style={{
@@ -264,97 +320,8 @@ export default function ARScene() {
         </button>
       )}
 
-      {/* Mute button */}
-      <button onClick={handleToggleMute} style={{
-        position: 'absolute', bottom: 28, right: 20, zIndex: 300,
-        background: 'rgba(0,229,255,0.12)',
-        border: '1px solid rgba(0,229,255,0.65)',
-        color: '#00e5ff', borderRadius: 10,
-        padding: '8px 18px', fontSize: 13,
-        fontFamily: 'system-ui, sans-serif', cursor: 'pointer',
-        backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
-        letterSpacing: '0.04em', userSelect: 'none', WebkitUserSelect: 'none',
-      }}>
-        {muted ? '🔇 Tap to Unmute' : '🔊 Sound On'}
-      </button>
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Hologram box 3D
-// Di overlay scene: camera di z=2.5, FOV 60° — unit bebas (bukan unit MindAR)
-// ─────────────────────────────────────────────────────────────────────────────
-function createHologram(videoEl) {
-  const group = new THREE.Group();
-
-  const W = 0.75;   // lebar box
-  const H = 1.10;   // tinggi box
-  const D = 0.30;   // kedalaman box
-
-  /* ── Canvas dummy texture ── */
-  const dummyCanvas = document.createElement('canvas');
-  dummyCanvas.width  = 512;
-  dummyCanvas.height = 720;
-  const ctx  = dummyCanvas.getContext('2d');
-  const grad = ctx.createLinearGradient(0, 0, 0, 720);
-  grad.addColorStop(0, '#0a0a2e');
-  grad.addColorStop(1, '#001a33');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 512, 720);
-  ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 6;
-  ctx.strokeRect(10, 10, 492, 700);
-  ctx.beginPath(); ctx.arc(256, 230, 90, 0, Math.PI * 2);
-  ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 3; ctx.stroke();
-  ctx.fillStyle = 'rgba(0,100,150,0.35)'; ctx.fill();
-  ctx.fillStyle = '#00e5ff'; ctx.font = 'bold 32px sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText('AR HOLOGRAM', 256, 390);
-  ctx.font = '20px sans-serif'; ctx.fillStyle = 'rgba(0,229,255,0.55)';
-  ctx.fillText('[ greeting.mp4 placeholder ]', 256, 430);
-
-  const frontTex = new THREE.CanvasTexture(dummyCanvas);
-  const frontMat = new THREE.MeshBasicMaterial({ map: frontTex, side: THREE.FrontSide });
-
-  // Swap ke VideoTexture saat greeting.mp4 siap
-  videoEl.addEventListener('loadeddata', () => {
-    const vTex = new THREE.VideoTexture(videoEl);
-    vTex.minFilter = THREE.LinearFilter;
-    vTex.magFilter = THREE.LinearFilter;
-    frontMat.map = vTex;
-    frontMat.needsUpdate = true;
-  }, { once: true });
-
-  const mkSide = () => new THREE.MeshBasicMaterial({
-    color: 0x001a33, transparent: true, opacity: 0.22, side: THREE.DoubleSide,
-  });
-
-  // BoxGeometry face order: +X, -X, +Y, -Y, +Z(front toward cam), -Z(back)
-  const geo = new THREE.BoxGeometry(W, H, D);
-  group.add(new THREE.Mesh(geo, [
-    mkSide(), mkSide(), mkSide(), mkSide(),
-    frontMat,   // +Z → menghadap kamera (camera di +Z)
-    mkSide(),
-  ]));
-
-  // Glowing wireframe
-  group.add(new THREE.LineSegments(
-    new THREE.EdgesGeometry(geo),
-    new THREE.LineBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.9 }),
-  ));
-
-  // Corner accents
-  const accMat  = new THREE.LineBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.5 });
-  const cornerH = H + 0.08;
-  for (const [cx, cz] of [[-W/2,-D/2],[W/2,-D/2],[-W/2,D/2],[W/2,D/2]]) {
-    group.add(new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(cx, -cornerH/2, cz),
-        new THREE.Vector3(cx,  cornerH/2, cz),
-      ]),
-      accMat,
-    ));
-  }
-
-  return group;
-}
 
