@@ -28,7 +28,8 @@ export default function ARScene({ videoSrc, onBack }) {
   const [ready,   setReady]   = useState(false);
 
   const handleBack = () => {
-    onBack?.();
+    sessionStorage.removeItem('sw-reloaded');
+    window.location.reload();
   };
 
   const handleClose = () => {

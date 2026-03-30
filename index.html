@@ -10,10 +10,16 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>AR Album Hologram</title>
     <script>
-      // Register service worker untuk clear cache otomatis setiap deploy
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('./sw.js?v=' + Date.now())
           .then(reg => reg.update());
+        // Reload otomatis sekali saat SW baru aktif (cache baru ter-clear)
+        navigator.serviceWorker.addEventListener('message', function(e) {
+          if (e.data === 'SW_UPDATED' && !sessionStorage.getItem('sw-reloaded')) {
+            sessionStorage.setItem('sw-reloaded', '1');
+            window.location.reload();
+          }
+        });
       }
     </script>
 
