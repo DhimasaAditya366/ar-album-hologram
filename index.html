@@ -9,6 +9,13 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>AR Album Hologram</title>
+    <script>
+      // Register service worker untuk clear cache otomatis setiap deploy
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js?v=' + Date.now())
+          .then(reg => reg.update());
+      }
+    </script>
 
     <!-- Three.js dan MindAR di-import langsung oleh React (tidak perlu script tag) -->
 
