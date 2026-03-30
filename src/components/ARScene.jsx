@@ -80,16 +80,14 @@ export default function ARScene() {
     const overlayCamera = new THREE.PerspectiveCamera(60, W / H, 0.01, 100);
     overlayCamera.position.set(0, 0, 2.5);
 
-    /* ── Lighting: ambient + 4 fill dari semua sisi ── */
-    overlayScene.add(new THREE.AmbientLight(0xffffff, 2.0));
-    const lights = [
-      [2, 2, 3],    // depan-kanan-atas
-      [-2, 1, 3],   // depan-kiri
-      [0, -2, 2],   // bawah-depan
-      [0, 1, -3],   // belakang
-    ];
-    lights.forEach(([x, y, z]) => {
-      const l = new THREE.DirectionalLight(0xffffff, 1.2);
+    /* ── Lighting: ambient kuat + 6 arah cardinal ── */
+    overlayScene.add(new THREE.AmbientLight(0xffffff, 3.5));
+    [
+      [ 1, 0, 0], [-1, 0, 0],  // kiri & kanan
+      [ 0, 1, 0], [ 0,-1, 0],  // atas & bawah
+      [ 0, 0, 1], [ 0, 0,-1],  // depan & belakang
+    ].forEach(([x, y, z]) => {
+      const l = new THREE.DirectionalLight(0xffffff, 1.0);
       l.position.set(x, y, z);
       overlayScene.add(l);
     });
@@ -138,11 +136,14 @@ export default function ARScene() {
             mats.forEach(mat => {
               if (!mat.map && mat.color) {
                 const c = mat.color;
-                // Kalau warnanya sangat gelap (kemungkinan default hitam), paksa putih
                 if (c.r < 0.05 && c.g < 0.05 && c.b < 0.05) {
                   mat.color.set(0xffffff);
                 }
               }
+              // Kurangi metalness agar sisi tetap terang saat rotate
+              if (mat.metalness !== undefined) mat.metalness = Math.min(mat.metalness, 0.3);
+              // Naikkan envMapIntensity supaya environment map fill ke semua sisi
+              if (mat.envMapIntensity !== undefined) mat.envMapIntensity = 2.5;
               mat.needsUpdate = true;
             });
           }
