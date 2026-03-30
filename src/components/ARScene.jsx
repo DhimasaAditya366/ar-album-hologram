@@ -164,7 +164,8 @@ export default function ARScene() {
           new THREE.PlaneGeometry(W, H),
           screenMat
         );
-        screenMesh.position.set(0, 0, size.z / 2 - 0.18);
+        // Posisi Z: 15% dari depan ke tengah model, selalu di dalam frame
+        screenMesh.position.set(0, 0, size.z * 0.15);
         hologramGroup.add(screenMesh);
       },
       undefined,
