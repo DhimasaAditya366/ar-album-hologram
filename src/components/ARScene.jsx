@@ -46,13 +46,10 @@ export default function ARScene() {
 
     /* ── Video element ── */
     const videoEl = document.createElement('video');
-    videoEl.crossOrigin = 'anonymous';
     videoEl.loop        = true;
     videoEl.muted       = true;
     videoEl.playsInline = true;
     videoEl.setAttribute('webkit-playsinline', '');
-    videoEl.src = import.meta.env.BASE_URL + 'assets/greeting.mp4?v=' + Date.now();
-    videoEl.load();
     videoRef.current = videoEl;
 
     /* ── Overlay Three.js renderer (terpisah dari MindAR) ── */
@@ -98,21 +95,28 @@ export default function ARScene() {
     overlayScene.add(hologramGroup);
     hologramRef.current = hologramGroup;
 
-    /* ── Canvas dummy → swap ke VideoTexture saat loadeddata ── */
-    const dummyCanvas = document.createElement('canvas');
-    dummyCanvas.width = 512; dummyCanvas.height = 720;
-    const ctx = dummyCanvas.getContext('2d');
-    ctx.fillStyle = '#0a0a2e'; ctx.fillRect(0, 0, 512, 720);
-    const screenTex = new THREE.CanvasTexture(dummyCanvas);
-    const screenMat = new THREE.MeshBasicMaterial({ map: screenTex, side: THREE.FrontSide });
+    /* ── VideoTexture — listener dipasang SEBELUM src/load ── */
+    const screenMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
 
-    videoEl.addEventListener('loadeddata', () => {
-      const vTex = new THREE.VideoTexture(videoEl);
-      vTex.minFilter = THREE.LinearFilter;
-      vTex.magFilter = THREE.LinearFilter;
-      screenMat.map = vTex;
-      screenMat.needsUpdate = true;
-    }, { once: true });
+    const swapToVideo = (() => {
+      let done = false;
+      return () => {
+        if (done) return;
+        done = true;
+        const vTex = new THREE.VideoTexture(videoEl);
+        vTex.minFilter = THREE.LinearFilter;
+        vTex.magFilter = THREE.LinearFilter;
+        screenMat.map   = vTex;
+        screenMat.color.set(0xffffff);
+        screenMat.needsUpdate = true;
+      };
+    })();
+
+    videoEl.addEventListener('loadeddata', swapToVideo);
+    videoEl.addEventListener('canplay',    swapToVideo);
+
+    videoEl.src = import.meta.env.BASE_URL + 'assets/greeting.mp4?v=' + Date.now();
+    videoEl.load();
 
     /* ── Load GLB model ── */
     const gltfLoader = new GLTFLoader();
@@ -156,8 +160,7 @@ export default function ARScene() {
           new THREE.PlaneGeometry(W, H),
           screenMat
         );
-        // Posisi Z: 15% dari depan ke tengah model, selalu di dalam frame
-        screenMesh.position.set(0, 0, size.z * 0.15);
+        screenMesh.position.set(0, 0, size.z / 2 - 0.04);
         hologramGroup.add(screenMesh);
       },
       undefined,
