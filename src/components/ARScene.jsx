@@ -50,8 +50,9 @@ export default function ARScene() {
     videoEl.muted       = true;
     videoEl.playsInline = true;
     videoEl.setAttribute('webkit-playsinline', '');
-    fetch(import.meta.env.BASE_URL + 'assets/greeting.mp4', { method: 'HEAD' })
-      .then(r => { if (r.ok) videoEl.src = import.meta.env.BASE_URL + 'assets/greeting.mp4'; })
+    const cacheBust = '?v=' + Date.now();
+    fetch(import.meta.env.BASE_URL + 'assets/greeting.mp4' + cacheBust, { method: 'HEAD' })
+      .then(r => { if (r.ok) videoEl.src = import.meta.env.BASE_URL + 'assets/greeting.mp4' + cacheBust; })
       .catch(() => {});
     videoRef.current = videoEl;
 
@@ -63,6 +64,8 @@ export default function ARScene() {
     overlayRenderer.setSize(W, H);
     overlayRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     overlayRenderer.setClearColor(0x000000, 0);
+    overlayRenderer.outputEncoding = THREE.sRGBEncoding;
+    overlayRenderer.physicallyCorrectLights = true;
     overlayRenderer.domElement.style.cssText =
       'position:absolute;top:0;left:0;width:100%;height:100%;z-index:10;pointer-events:none';
     container.appendChild(overlayRenderer.domElement);
@@ -110,7 +113,7 @@ export default function ARScene() {
     /* ── Load GLB model ── */
     const gltfLoader = new GLTFLoader();
     gltfLoader.load(
-      import.meta.env.BASE_URL + 'assets/model.glb',
+      import.meta.env.BASE_URL + 'assets/model.glb?v=' + Date.now(),
       (gltf) => {
         const model = gltf.scene;
         hologramGroup.add(model);
