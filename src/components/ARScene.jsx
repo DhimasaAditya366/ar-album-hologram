@@ -168,7 +168,8 @@ export default function ARScene({ videoSrc, onBack }) {
           new THREE.PlaneGeometry(W, H),
           screenMat
         );
-        screenMesh.position.set(0, 0, size.z / 2 - 0.03);
+        // Pakai box.max.z (muka terdepan model) bukan size.z/2 agar tidak meleset
+        screenMesh.position.set(0, 0, box.max.z - 0.002);
         hologramGroup.add(screenMesh);
       },
       undefined,
