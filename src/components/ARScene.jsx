@@ -164,7 +164,7 @@ export default function ARScene() {
           roundedPlaneGeometry(W, H, R),
           screenMat
         );
-        screenMesh.position.set(0, 0, size.z / 2 - 0.015);
+        screenMesh.position.set(0, 0, size.z / 2 - 0.04);
         hologramGroup.add(screenMesh);
       },
       undefined,
@@ -376,6 +376,7 @@ export default function ARScene() {
 }
 
 // ── Rounded rectangle geometry untuk video plane ──
+// UV di-normalize manual ke [0,1] — ShapeGeometry tidak otomatis
 function roundedPlaneGeometry(width, height, radius) {
   const w = width / 2, h = height / 2, r = radius;
   const shape = new THREE.Shape();
@@ -388,5 +389,16 @@ function roundedPlaneGeometry(width, height, radius) {
   shape.quadraticCurveTo(-w,  h, -w,  h - r);
   shape.lineTo(-w, -h + r);
   shape.quadraticCurveTo(-w, -h, -w + r, -h);
-  return new THREE.ShapeGeometry(shape, 8);
+  const geo = new THREE.ShapeGeometry(shape, 8);
+  // Remap UV dari koordinat shape ke [0,1]
+  const pos = geo.attributes.position;
+  const uv  = geo.attributes.uv;
+  for (let i = 0; i < pos.count; i++) {
+    uv.setXY(i,
+      (pos.getX(i) + w) / width,
+      (pos.getY(i) + h) / height,
+    );
+  }
+  uv.needsUpdate = true;
+  return geo;
 }
