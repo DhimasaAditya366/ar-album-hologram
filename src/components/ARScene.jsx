@@ -52,6 +52,8 @@ export default function ARScene() {
     videoEl.playsInline = true;
     videoEl.setAttribute('webkit-playsinline', '');
     videoEl.src = import.meta.env.BASE_URL + 'assets/greeting.mp4?v=' + Date.now();
+    videoEl.style.display = 'none';
+    container.appendChild(videoEl);   // wajib ada di DOM agar VideoTexture jalan di mobile
     videoEl.load();
     videoRef.current = videoEl;
 
@@ -295,6 +297,7 @@ export default function ARScene() {
       container.removeEventListener('click', onTap);
       videoEl.pause();
       videoEl.src = '';
+      videoEl.remove();
       videoRef.current = null;
     };
   }, []);
