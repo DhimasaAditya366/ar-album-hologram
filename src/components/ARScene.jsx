@@ -93,7 +93,7 @@ export default function ARScene() {
     /* ── Video plane — layar yang nempel di front face FBX ── */
     // VW/VH: sesuaikan dengan ukuran front face model FBX
     // PZ: posisi Z (positif = maju ke arah kamera), sesuaikan agar pas di permukaan FBX
-    const VW = 0.75, VH = 1.10, PZ = 0.16;
+    const VW = 1.0, VH = 1.45, PZ = 0.16;
 
     // Canvas dummy (tampil selagi greeting.mp4 belum ada)
     const dummyCanvas = document.createElement('canvas');
