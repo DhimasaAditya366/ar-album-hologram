@@ -51,10 +51,8 @@ export default function ARScene() {
     videoEl.muted       = true;
     videoEl.playsInline = true;
     videoEl.setAttribute('webkit-playsinline', '');
-    const cacheBust = '?v=' + Date.now();
-    fetch(import.meta.env.BASE_URL + 'assets/greeting.mp4' + cacheBust, { method: 'HEAD' })
-      .then(r => { if (r.ok) videoEl.src = import.meta.env.BASE_URL + 'assets/greeting.mp4' + cacheBust; })
-      .catch(() => {});
+    videoEl.src = import.meta.env.BASE_URL + 'assets/greeting.mp4?v=' + Date.now();
+    videoEl.load();
     videoRef.current = videoEl;
 
     /* ── Overlay Three.js renderer (terpisah dari MindAR) ── */
@@ -82,11 +80,19 @@ export default function ARScene() {
     const overlayCamera = new THREE.PerspectiveCamera(60, W / H, 0.01, 100);
     overlayCamera.position.set(0, 0, 2.5);
 
-    /* ── Lighting (dibutuhkan untuk PBR material GLB) ── */
-    overlayScene.add(new THREE.AmbientLight(0xffffff, 1.2));
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
-    dirLight.position.set(1, 2, 3);
-    overlayScene.add(dirLight);
+    /* ── Lighting: ambient + 4 fill dari semua sisi ── */
+    overlayScene.add(new THREE.AmbientLight(0xffffff, 2.0));
+    const lights = [
+      [2, 2, 3],    // depan-kanan-atas
+      [-2, 1, 3],   // depan-kiri
+      [0, -2, 2],   // bawah-depan
+      [0, 1, -3],   // belakang
+    ];
+    lights.forEach(([x, y, z]) => {
+      const l = new THREE.DirectionalLight(0xffffff, 1.2);
+      l.position.set(x, y, z);
+      overlayScene.add(l);
+    });
 
     /* ── Hologram group (wrapper untuk gyro + float) ── */
     const hologramGroup = new THREE.Group();
@@ -158,7 +164,7 @@ export default function ARScene() {
           roundedPlaneGeometry(W, H, R),
           screenMat
         );
-        screenMesh.position.set(0, 0, size.z / 2 + 0.001);
+        screenMesh.position.set(0, 0, size.z / 2 - 0.015);
         hologramGroup.add(screenMesh);
       },
       undefined,
