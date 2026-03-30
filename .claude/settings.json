@@ -13,6 +13,21 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "timeout": 300,
+            "async": true,
+            "statusMessage": "Building & deploying to GitHub Pages...",
+            "command": "$dir = 'D:\\kerjaan\\MetaPacmas\\4. Web AR Cover Album\\ar-album-hologram'; Set-Location $dir; $changes = git status --porcelain; if ($changes) { git add -A; git commit -m \"auto: deploy $(Get-Date -Format 'HH:mm')\"; git push }; & 'D:\\program files\\Node\\node.exe' './node_modules/vite/bin/vite.js' build; & 'D:\\program files\\Node\\node.exe' './node_modules/gh-pages/bin/gh-pages.js' -d dist --no-history"
+          }
+        ]
+      }
     ]
   }
 }
