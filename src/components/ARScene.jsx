@@ -158,7 +158,7 @@ export default function ARScene() {
           screenMat
         );
         // Z=0 terbukti visible; pakai sedikit depan center supaya tidak Z-fight
-        screenMesh.position.set(0, 0, size.z / 2 - 0.01);
+        screenMesh.position.set(0, 0, size.z / 2 - 0.18);
         hologramGroup.add(screenMesh);
       },
       undefined,
