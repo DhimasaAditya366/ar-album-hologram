@@ -54,7 +54,9 @@ export default function ARScene() {
     // Off-screen di body — display:none kadang block decode di beberapa browser mobile
     videoEl.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0.001;pointer-events:none;';
     document.body.appendChild(videoEl);
+    videoEl.preload = 'auto';
     videoEl.src = import.meta.env.BASE_URL + 'assets/greeting.mp4?v=' + Date.now();
+    videoEl.load();
     videoRef.current = videoEl;
 
     /* ── Overlay Three.js renderer (terpisah dari MindAR) ── */
