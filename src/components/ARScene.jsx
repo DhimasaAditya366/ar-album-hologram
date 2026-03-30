@@ -21,10 +21,21 @@ export default function ARScene({ videoSrc, onBack }) {
   const containerRef = useRef(null);
   const hologramRef  = useRef(null);
   const videoRef     = useRef(null);
+  const mindarRef    = useRef(null);
   const [muted,   setMuted]   = useState(true);
   const [status,  setStatus]  = useState('Initializing...');
   const [spawned, setSpawned] = useState(false);
   const [ready,   setReady]   = useState(false);
+
+  const handleBack = () => {
+    videoRef.current?.pause();
+    const mind = mindarRef.current;
+    if (mind) {
+      mind.stop().catch(() => {}).finally(() => onBack?.());
+    } else {
+      onBack?.();
+    }
+  };
 
   const handleClose = () => {
     if (hologramRef.current) hologramRef.current.visible = false;
@@ -157,7 +168,7 @@ export default function ARScene({ videoSrc, onBack }) {
           new THREE.PlaneGeometry(W, H),
           screenMat
         );
-        screenMesh.position.set(0, 0, size.z / 2 - 0.01);
+        screenMesh.position.set(0, 0, size.z / 2 - 0.03);
         hologramGroup.add(screenMesh);
       },
       undefined,
@@ -196,6 +207,7 @@ export default function ARScene({ videoSrc, onBack }) {
     /* ── MindAR (camera feed + image detection trigger) ── */
     let mindarThree = null;
     let destroyed   = false;
+    mindarRef.current = null;
 
     const init = async () => {
       setStatus('Loading AR engine...');
@@ -224,6 +236,7 @@ export default function ARScene({ videoSrc, onBack }) {
 
       setStatus('Starting camera...');
       await mindarThree.start();
+      mindarRef.current = mindarThree;
       if (destroyed) { mindarThree.stop().catch(() => {}); return; }
 
       setStatus('Scanning... (arahkan ke cover album)');
@@ -350,7 +363,7 @@ export default function ARScene({ videoSrc, onBack }) {
 
       {/* Back to dashboard */}
       {onBack && (
-        <button onClick={onBack} style={{
+        <button onClick={handleBack} style={{
           position: 'absolute', top: 12, right: 12, zIndex: 300,
           background: 'rgba(0,0,0,0.45)', border: '1px solid rgba(255,255,255,0.3)',
           color: '#fff', borderRadius: 10, padding: '6px 16px', fontSize: 13,
