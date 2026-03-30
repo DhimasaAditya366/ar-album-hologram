@@ -116,8 +116,11 @@ export default function ARScene() {
         box.getSize(size);
         // size.x = lebar, size.y = tinggi, size.z = kedalaman
         // Video plane di front face (+Z), posisi Z = setengah kedalaman model
+        // INSET: kurangi sedikit supaya tidak keluar dari border frame FBX
+        // Naikkan nilai ini jika masih meluber, turunkan jika terlalu kecil
+        const INSET = 0.88;
         const screenMesh = new THREE.Mesh(
-          new THREE.PlaneGeometry(size.x, size.y),
+          new THREE.PlaneGeometry(size.x * INSET, size.y * INSET),
           screenMat
         );
         screenMesh.position.set(0, 0, size.z / 2 + 0.001);
