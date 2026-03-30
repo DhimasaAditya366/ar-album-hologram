@@ -145,22 +145,16 @@ export default function ARScene() {
           }
         });
 
+        // TEMP: sembunyikan 3D model, hanya tampilkan video plane
+        model.visible = false;
         hologramGroup.add(model);
 
-        // Auto-size video plane berdasarkan bounding box GLB
-        const box  = new THREE.Box3().setFromObject(model);
-        const size = new THREE.Vector3();
-        box.getSize(size);
-        // size.x = lebar, size.y = tinggi, size.z = kedalaman
-        // Video plane di front face (+Z), posisi Z = setengah kedalaman model
-        // Rounded rectangle supaya pojok video tidak mencuat dari frame FBX
-        const INSET  = 0.82;
-        const W = size.x * INSET, H = size.y * INSET;
+        // Video plane — ukuran fixed sementara 3D disembunyikan
         const screenMesh = new THREE.Mesh(
-          new THREE.PlaneGeometry(W, H),
+          new THREE.PlaneGeometry(0.6, 1.0),
           screenMat
         );
-        screenMesh.position.set(0, 0, size.z / 2 - 0.04);
+        screenMesh.position.set(0, 0, 0);
         hologramGroup.add(screenMesh);
       },
       undefined,
