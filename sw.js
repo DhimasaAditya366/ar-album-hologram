@@ -5,11 +5,12 @@ self.addEventListener('activate', e => {
     caches.keys()
       .then(keys => Promise.all(keys.map(k => caches.delete(k))))
       .then(() => self.clients.claim())
+      .then(() => self.clients.matchAll({ type: 'window' }))
+      .then(clients => clients.forEach(c => c.postMessage('SW_UPDATED')))
   );
 });
 
-// Network-first HANYA untuk navigation (index.html)
-// Asset & video range request TIDAK disentuh
+// Network-first untuk navigation (index.html) agar selalu fresh
 self.addEventListener('fetch', e => {
   if (e.request.mode === 'navigate') {
     e.respondWith(
