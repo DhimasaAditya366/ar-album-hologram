@@ -157,8 +157,7 @@ export default function ARScene() {
           new THREE.PlaneGeometry(W, H),
           screenMat
         );
-        // Z=0 terbukti visible; pakai sedikit depan center supaya tidak Z-fight
-        screenMesh.position.set(0, 0, size.z / 2 + 0.002);
+        screenMesh.position.set(0, 0, size.z / 2 - 0.05);
         hologramGroup.add(screenMesh);
       },
       undefined,
