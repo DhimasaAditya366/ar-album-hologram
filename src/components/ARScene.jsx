@@ -116,11 +116,12 @@ export default function ARScene() {
         box.getSize(size);
         // size.x = lebar, size.y = tinggi, size.z = kedalaman
         // Video plane di front face (+Z), posisi Z = setengah kedalaman model
-        // INSET: kurangi sedikit supaya tidak keluar dari border frame FBX
-        // Naikkan nilai ini jika masih meluber, turunkan jika terlalu kecil
-        const INSET = 0.82;
+        // Rounded rectangle supaya pojok video tidak mencuat dari frame FBX
+        const INSET  = 0.82;
+        const W = size.x * INSET, H = size.y * INSET;
+        const R = Math.min(W, H) * 0.08; // radius sudut ~8% dari sisi terkecil
         const screenMesh = new THREE.Mesh(
-          new THREE.PlaneGeometry(size.x * INSET, size.y * INSET),
+          roundedPlaneGeometry(W, H, R),
           screenMat
         );
         screenMesh.position.set(0, 0, size.z / 2 + 0.001);
@@ -334,4 +335,18 @@ export default function ARScene() {
   );
 }
 
-
+// ── Rounded rectangle geometry untuk video plane ──
+function roundedPlaneGeometry(width, height, radius) {
+  const w = width / 2, h = height / 2, r = radius;
+  const shape = new THREE.Shape();
+  shape.moveTo(-w + r, -h);
+  shape.lineTo( w - r, -h);
+  shape.quadraticCurveTo( w, -h,  w, -h + r);
+  shape.lineTo( w,  h - r);
+  shape.quadraticCurveTo( w,  h,  w - r,  h);
+  shape.lineTo(-w + r,  h);
+  shape.quadraticCurveTo(-w,  h, -w,  h - r);
+  shape.lineTo(-w, -h + r);
+  shape.quadraticCurveTo(-w, -h, -w + r, -h);
+  return new THREE.ShapeGeometry(shape, 8);
+}
