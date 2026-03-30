@@ -103,7 +103,7 @@ export default function ARScene() {
 
     /* ── Load FBX model ── */
     const fbxLoader = new FBXLoader();
-    fbxLoader.setResourcePath(import.meta.env.BASE_URL + 'assets/');
+    fbxLoader.setResourcePath(import.meta.env.BASE_URL + 'assets/texture/');
     fbxLoader.load(
       import.meta.env.BASE_URL + 'assets/model.fbx',
       (fbx) => {
