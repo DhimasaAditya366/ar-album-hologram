@@ -28,13 +28,7 @@ export default function ARScene({ videoSrc, onBack }) {
   const [ready,   setReady]   = useState(false);
 
   const handleBack = () => {
-    videoRef.current?.pause();
-    const mind = mindarRef.current;
-    if (mind) {
-      mind.stop().catch(() => {}).finally(() => onBack?.());
-    } else {
-      onBack?.();
-    }
+    window.location.reload();
   };
 
   const handleClose = () => {
@@ -168,8 +162,7 @@ export default function ARScene({ videoSrc, onBack }) {
           new THREE.PlaneGeometry(W, H),
           screenMat
         );
-        // Pakai box.max.z (muka terdepan model) bukan size.z/2 agar tidak meleset
-        screenMesh.position.set(0, 0, box.max.z - 0.002);
+        screenMesh.position.set(0, 0, box.max.z - 0.01);
         hologramGroup.add(screenMesh);
       },
       undefined,
