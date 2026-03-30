@@ -56,6 +56,9 @@ export default function ARScene({ videoSrc, onBack }) {
     videoEl.muted       = true;
     videoEl.playsInline = true;
     videoEl.setAttribute('webkit-playsinline', '');
+    // Mobile butuh video ada di DOM agar bisa load & fire events
+    videoEl.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1;';
+    container.appendChild(videoEl);
     videoRef.current = videoEl;
 
     /* ── Overlay Three.js renderer (terpisah dari MindAR) ── */
@@ -287,6 +290,7 @@ export default function ARScene({ videoSrc, onBack }) {
       container.removeEventListener('click', onTap);
       videoEl.pause();
       videoEl.src = '';
+      videoEl.remove();
       videoRef.current = null;
     };
   }, []);
