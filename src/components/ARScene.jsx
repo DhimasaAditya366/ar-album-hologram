@@ -28,14 +28,7 @@ export default function ARScene({ videoSrc, onBack }) {
   const [ready,   setReady]   = useState(false);
 
   const handleBack = () => {
-    videoRef.current?.pause();
-    const mind = mindarRef.current;
-    if (mind) {
-      mind._animate?.();                   // cancel animation frame
-      mind.renderer?.setAnimationLoop(null);
-      mind.stop().catch(() => {});         // stop camera (async, tidak ditunggu)
-    }
-    onBack?.();                            // langsung balik ke dashboard
+    onBack?.();
   };
 
   const handleClose = () => {
@@ -169,7 +162,7 @@ export default function ARScene({ videoSrc, onBack }) {
           new THREE.PlaneGeometry(W, H),
           screenMat
         );
-        screenMesh.position.set(0, 0, box.max.z - 0.05);
+        screenMesh.position.set(0, 0, box.max.z - 0.15);
         hologramGroup.add(screenMesh);
       },
       undefined,
