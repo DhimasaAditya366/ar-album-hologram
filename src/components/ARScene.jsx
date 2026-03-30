@@ -118,7 +118,7 @@ export default function ARScene() {
         // Video plane di front face (+Z), posisi Z = setengah kedalaman model
         // INSET: kurangi sedikit supaya tidak keluar dari border frame FBX
         // Naikkan nilai ini jika masih meluber, turunkan jika terlalu kecil
-        const INSET = 0.88;
+        const INSET = 0.82;
         const screenMesh = new THREE.Mesh(
           new THREE.PlaneGeometry(size.x * INSET, size.y * INSET),
           screenMat
