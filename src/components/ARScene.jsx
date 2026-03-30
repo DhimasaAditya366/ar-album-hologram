@@ -13,7 +13,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MindARThree } from 'mind-ar/dist/mindar-image-three.prod.js';
 
 export default function ARScene() {
@@ -101,17 +101,16 @@ export default function ARScene() {
       screenMat.needsUpdate = true;
     }, { once: true });
 
-    /* ── Load FBX model ── */
-    const fbxLoader = new FBXLoader();
-    fbxLoader.setResourcePath(import.meta.env.BASE_URL + 'assets/texture/');
-    fbxLoader.load(
-      import.meta.env.BASE_URL + 'assets/model.fbx',
-      (fbx) => {
-        fbx.scale.setScalar(0.01); // cm → meter
-        hologramGroup.add(fbx);
+    /* ── Load GLB model ── */
+    const gltfLoader = new GLTFLoader();
+    gltfLoader.load(
+      import.meta.env.BASE_URL + 'assets/model.glb',
+      (gltf) => {
+        const model = gltf.scene;
+        hologramGroup.add(model);
 
-        // Auto-size video plane berdasarkan bounding box FBX
-        const box  = new THREE.Box3().setFromObject(fbx);
+        // Auto-size video plane berdasarkan bounding box GLB
+        const box  = new THREE.Box3().setFromObject(model);
         const size = new THREE.Vector3();
         box.getSize(size);
         // size.x = lebar, size.y = tinggi, size.z = kedalaman
