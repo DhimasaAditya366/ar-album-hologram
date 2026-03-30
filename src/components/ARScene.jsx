@@ -71,6 +71,12 @@ export default function ARScene() {
     const overlayCamera = new THREE.PerspectiveCamera(60, W / H, 0.01, 100);
     overlayCamera.position.set(0, 0, 2.5);
 
+    /* ── Lighting (dibutuhkan untuk PBR material GLB) ── */
+    overlayScene.add(new THREE.AmbientLight(0xffffff, 1.2));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+    dirLight.position.set(1, 2, 3);
+    overlayScene.add(dirLight);
+
     /* ── Hologram group (wrapper untuk gyro + float) ── */
     const hologramGroup = new THREE.Group();
     hologramGroup.visible = false;
