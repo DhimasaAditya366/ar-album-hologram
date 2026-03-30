@@ -17,7 +17,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { MindARThree } from 'mind-ar/dist/mindar-image-three.prod.js';
 
-export default function ARScene() {
+export default function ARScene({ videoSrc, onBack }) {
   const containerRef = useRef(null);
   const hologramRef  = useRef(null);
   const videoRef     = useRef(null);
@@ -115,7 +115,7 @@ export default function ARScene() {
     videoEl.addEventListener('loadeddata', swapToVideo);
     videoEl.addEventListener('canplay',    swapToVideo);
 
-    videoEl.src = import.meta.env.BASE_URL + 'assets/greeting.mp4?v=' + Date.now();
+    videoEl.src = (videoSrc || import.meta.env.BASE_URL + 'assets/greeting.mp4') + '?v=' + Date.now();
     videoEl.load();
 
     /* ── Load GLB model ── */
@@ -347,6 +347,20 @@ export default function ARScene() {
       }}>
         {muted ? '🔇 Unmute' : '🔊 Sound On'}
       </button>
+
+      {/* Back to dashboard */}
+      {onBack && (
+        <button onClick={onBack} style={{
+          position: 'absolute', top: 12, right: 12, zIndex: 300,
+          background: 'rgba(0,0,0,0.45)', border: '1px solid rgba(255,255,255,0.3)',
+          color: '#fff', borderRadius: 10, padding: '6px 16px', fontSize: 13,
+          fontFamily: 'system-ui, sans-serif', cursor: 'pointer',
+          backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+          userSelect: 'none', WebkitUserSelect: 'none',
+        }}>
+          ← Back
+        </button>
+      )}
 
       {/* Close / Despawn button — hanya muncul saat hologram aktif */}
       {spawned && (
