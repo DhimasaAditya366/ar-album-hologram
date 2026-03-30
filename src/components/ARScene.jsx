@@ -46,15 +46,11 @@ export default function ARScene() {
 
     /* ── Video element ── */
     const videoEl = document.createElement('video');
+    videoEl.crossOrigin = 'anonymous';
     videoEl.loop        = true;
     videoEl.muted       = true;
     videoEl.playsInline = true;
-    videoEl.setAttribute('playsinline', '');
     videoEl.setAttribute('webkit-playsinline', '');
-    // Off-screen di body — display:none kadang block decode di beberapa browser mobile
-    videoEl.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0.001;pointer-events:none;';
-    document.body.appendChild(videoEl);
-    videoEl.preload = 'auto';
     videoEl.src = import.meta.env.BASE_URL + 'assets/greeting.mp4?v=' + Date.now();
     videoEl.load();
     videoRef.current = videoEl;
@@ -102,11 +98,21 @@ export default function ARScene() {
     overlayScene.add(hologramGroup);
     hologramRef.current = hologramGroup;
 
-    /* ── VideoTexture langsung — Three.js otomatis update saat video playing ── */
-    const vTex = new THREE.VideoTexture(videoEl);
-    vTex.minFilter = THREE.LinearFilter;
-    vTex.magFilter = THREE.LinearFilter;
-    const screenMat = new THREE.MeshBasicMaterial({ map: vTex, side: THREE.FrontSide });
+    /* ── Canvas dummy → swap ke VideoTexture saat loadeddata ── */
+    const dummyCanvas = document.createElement('canvas');
+    dummyCanvas.width = 512; dummyCanvas.height = 720;
+    const ctx = dummyCanvas.getContext('2d');
+    ctx.fillStyle = '#0a0a2e'; ctx.fillRect(0, 0, 512, 720);
+    const screenTex = new THREE.CanvasTexture(dummyCanvas);
+    const screenMat = new THREE.MeshBasicMaterial({ map: screenTex, side: THREE.FrontSide });
+
+    videoEl.addEventListener('loadeddata', () => {
+      const vTex = new THREE.VideoTexture(videoEl);
+      vTex.minFilter = THREE.LinearFilter;
+      vTex.magFilter = THREE.LinearFilter;
+      screenMat.map = vTex;
+      screenMat.needsUpdate = true;
+    }, { once: true });
 
     /* ── Load GLB model ── */
     const gltfLoader = new GLTFLoader();
@@ -212,10 +218,7 @@ export default function ARScene() {
         setSpawned(true);
         setStatus('Target found!');
         videoEl.currentTime = 0;
-        // Retry play kalau gagal (mobile kadang butuh delay setelah pause)
-        videoEl.play().catch(() => {
-          setTimeout(() => videoEl.play().catch(() => {}), 300);
-        });
+        videoEl.play().catch(console.warn);
       };
       anchor.onTargetLost = () => {}; // hologram tetap tampil sampai di-close
 
@@ -249,9 +252,6 @@ export default function ARScene() {
         // Float animation
         hologramGroup.position.y = Math.sin(t * 1.2) * 0.06;
 
-        // Force VideoTexture update setiap frame saat video playing
-        if (!videoEl.paused) vTex.needsUpdate = true;
-
         overlayRenderer.render(overlayScene, overlayCamera);
       };
       animate();
@@ -279,7 +279,6 @@ export default function ARScene() {
       container.removeEventListener('click', onTap);
       videoEl.pause();
       videoEl.src = '';
-      document.body.removeChild(videoEl);
       videoRef.current = null;
     };
   }, []);
