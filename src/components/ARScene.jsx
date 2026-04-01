@@ -8,7 +8,7 @@
  *
  * Asset di /public/assets/:
  *  targets.mind  — dari MindAR Compiler
- *  greeting.mp4  — video artis (opsional, ada dummy canvas kalau belum ada)
+ *  model.glb     — 3D model hologram
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -17,12 +17,10 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { MindARThree } from 'mind-ar/dist/mindar-image-three.prod.js';
 
-export default function ARScene({ videoSrc, onBack }) {
+export default function ARScene({ onBack }) {
   const containerRef = useRef(null);
   const hologramRef  = useRef(null);
-  const videoRef     = useRef(null);
   const mindarRef    = useRef(null);
-  const [muted,   setMuted]   = useState(false);
   const [status,  setStatus]  = useState('Initializing...');
   const [spawned, setSpawned] = useState(false);
   const [ready,   setReady]   = useState(false);
@@ -34,57 +32,12 @@ export default function ARScene({ videoSrc, onBack }) {
 
   const handleClose = () => {
     if (hologramRef.current) hologramRef.current.visible = false;
-    videoRef.current?.pause();
     setSpawned(false);
     setStatus('Scanning... (arahkan ke cover album)');
   };
 
-  const handleToggleMute = () => {
-    const vid = videoRef.current;
-    if (!vid) return;
-    vid.muted = !vid.muted;
-    setMuted(vid.muted);
-    if (!vid.muted) vid.play().catch(() => {});
-  };
-
   useEffect(() => {
     const container = containerRef.current;
-
-    /* ── Video element (screen) ── */
-    const videoEl = document.createElement('video');
-    videoEl.loop        = false; // manual loop agar seamless
-    videoEl.muted       = false;
-    videoEl.playsInline = true;
-    videoEl.setAttribute('webkit-playsinline', '');
-    videoEl.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1;';
-    container.appendChild(videoEl);
-    videoRef.current = videoEl;
-    // Seamless loop via ended event
-    videoEl.addEventListener('ended', () => {
-      videoEl.currentTime = 0;
-      videoEl.play().catch(() => {});
-    });
-
-    /* ── Frame video elements (d1_low) — RGB + Alpha terpisah ── */
-    const makeFrameVideo = (src) => {
-      const el = document.createElement('video');
-      el.loop = false; el.muted = true; el.playsInline = true;
-      el.setAttribute('webkit-playsinline', '');
-      el.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1;';
-      container.appendChild(el);
-      el.src = import.meta.env.BASE_URL + 'assets/' + src + '?v=' + Date.now();
-      el.load();
-      return el;
-    };
-    const frameRgbEl   = makeFrameVideo('Frame_rgb.mp4');
-    const frameAlphaEl = makeFrameVideo('Frame_alpha.mp4');
-    // seamless loop — rgb ended → reset & replay keduanya bersamaan
-    frameRgbEl.addEventListener('ended', () => {
-      frameRgbEl.currentTime   = 0;
-      frameAlphaEl.currentTime = 0;
-      frameRgbEl.play().catch(() => {});
-      frameAlphaEl.play().catch(() => {});
-    });
 
     /* ── Overlay Three.js renderer (terpisah dari MindAR) ── */
     const W = container.clientWidth;
@@ -114,9 +67,9 @@ export default function ARScene({ videoSrc, onBack }) {
     /* ── Lighting: ambient kuat + 6 arah cardinal ── */
     overlayScene.add(new THREE.AmbientLight(0xffffff, 3.5));
     [
-      [ 1, 0, 0], [-1, 0, 0],  // kiri & kanan
-      [ 0, 1, 0], [ 0,-1, 0],  // atas & bawah
-      [ 0, 0, 1], [ 0, 0,-1],  // depan & belakang
+      [ 1, 0, 0], [-1, 0, 0],
+      [ 0, 1, 0], [ 0,-1, 0],
+      [ 0, 0, 1], [ 0, 0,-1],
     ].forEach(([x, y, z]) => {
       const l = new THREE.DirectionalLight(0xffffff, 1.0);
       l.position.set(x, y, z);
@@ -134,79 +87,6 @@ export default function ARScene({ videoSrc, onBack }) {
     innerLight.position.set(0, 0, 0);
     hologramGroup.add(innerLight);
 
-    /* ── Frame material (d1_low) — ShaderMaterial RGB + Alpha ── */
-    const frameMat = new THREE.ShaderMaterial({
-      transparent: true,
-      depthWrite:  false,
-      side: THREE.DoubleSide,
-      uniforms: {
-        rgbTex:   { value: new THREE.Texture() },
-        alphaTex: { value: new THREE.Texture() },
-      },
-      vertexShader: `
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform sampler2D rgbTex;
-        uniform sampler2D alphaTex;
-        varying vec2 vUv;
-        void main() {
-          vec3  color = texture2D(rgbTex,   vUv).rgb;
-          float alpha = texture2D(alphaTex, vUv).r;
-          gl_FragColor = vec4(color, alpha);
-        }
-      `,
-    });
-
-    // Swap VideoTexture ke uniform setelah video load
-    let rgbReady = false, alphaReady = false;
-    const trySwapFrame = () => {
-      if (!rgbReady || !alphaReady) return;
-      const rTex = new THREE.VideoTexture(frameRgbEl);
-      const aTex = new THREE.VideoTexture(frameAlphaEl);
-      rTex.minFilter = aTex.minFilter = THREE.LinearFilter;
-      rTex.magFilter = aTex.magFilter = THREE.LinearFilter;
-      frameMat.uniforms.rgbTex.value   = rTex;
-      frameMat.uniforms.alphaTex.value = aTex;
-      frameMat.needsUpdate = true;
-    };
-    frameRgbEl.addEventListener('loadeddata',   () => { rgbReady   = true; trySwapFrame(); });
-    frameRgbEl.addEventListener('canplay',       () => { rgbReady   = true; trySwapFrame(); });
-    frameAlphaEl.addEventListener('loadeddata',  () => { alphaReady = true; trySwapFrame(); });
-    frameAlphaEl.addEventListener('canplay',     () => { alphaReady = true; trySwapFrame(); });
-
-    /* ── VideoTexture — listener dipasang SEBELUM src/load ── */
-    const screenMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
-
-    const swapToVideo = (() => {
-      let done = false;
-      return () => {
-        if (done) return;
-        done = true;
-        const vTex = new THREE.VideoTexture(videoEl);
-        vTex.minFilter = THREE.LinearFilter;
-        vTex.magFilter = THREE.LinearFilter;
-        vTex.center.set(0.5, 0.5);
-        // Portrait → Math.PI, Landscape → tambah 90° lagi
-        vTex.rotation = videoEl.videoWidth > videoEl.videoHeight
-          ? Math.PI + Math.PI / 2
-          : Math.PI;
-        screenMat.map   = vTex;
-        screenMat.color.set(0xffffff);
-        screenMat.needsUpdate = true;
-      };
-    })();
-
-    videoEl.addEventListener('loadeddata', swapToVideo);
-    videoEl.addEventListener('canplay',    swapToVideo);
-
-    videoEl.src = (videoSrc || import.meta.env.BASE_URL + 'assets/greeting.mp4') + '?v=' + Date.now();
-    videoEl.load();
-
     /* ── Load GLB model ── */
     const gltfLoader = new GLTFLoader();
     gltfLoader.load(
@@ -214,25 +94,21 @@ export default function ARScene({ videoSrc, onBack }) {
       (gltf) => {
         const model = gltf.scene;
 
-        // Fix material + emission pada semua mesh (kecuali screen & frame)
+        // Fix material + emission pada semua mesh
         model.traverse((child) => {
           if (!child.isMesh || !child.material) return;
-          if (child.name === 'd1_mattscreen' || child.name === 'd1_low') return;
           const mats = Array.isArray(child.material) ? child.material : [child.material];
           mats.forEach(mat => {
             if (!mat.map && mat.color) {
               const c = mat.color;
               if (c.r < 0.05 && c.g < 0.05 && c.b < 0.05) mat.color.set(0xffffff);
             }
-            if (mat.metalness !== undefined)     mat.metalness     = Math.min(mat.metalness, 0.3);
+            if (mat.metalness !== undefined)      mat.metalness      = Math.min(mat.metalness, 0.3);
             if (mat.envMapIntensity !== undefined) mat.envMapIntensity = 2.5;
-            // Terangkan sisi dalam
             if (mat.emissive !== undefined) {
-              // MeshStandardMaterial / MeshPhongMaterial
               mat.emissive.set(0xffffff);
               mat.emissiveIntensity = 1.5;
             } else if (mat.color !== undefined) {
-              // MeshBasicMaterial — tidak ada emissive, brighten color langsung
               mat.color.setRGB(
                 Math.min(mat.color.r * 4, 1),
                 Math.min(mat.color.g * 4, 1),
@@ -243,33 +119,23 @@ export default function ARScene({ videoSrc, onBack }) {
           });
         });
 
-        // Replace material mesh layar & frame dengan VideoTexture
-        model.traverse((child) => {
-          if (!child.isMesh) return;
-          if (child.name === 'd1_mattscreen') child.material = screenMat;
-          if (child.name === 'd1_low')        child.material = frameMat;
-        });
-
         hologramGroup.add(model);
       },
       undefined,
-      (err) => { setStatus('ERROR load FBX: ' + (err?.message ?? err)); }
+      (err) => { setStatus('ERROR load GLB: ' + (err?.message ?? err)); }
     );
 
     /* ── Gyroscope ── */
-    let gyroX = 0, gyroY = 0;   // target rotation (rad)
-    let curX  = 0, curY  = 0;   // current smoothed rotation
+    let gyroX = 0, gyroY = 0;
+    let curX  = 0, curY  = 0;
 
     const onOrientation = (e) => {
-      const beta  = e.beta  ?? 0;   // tilt maju/mundur  (-180 ~ 180)
-      const gamma = e.gamma ?? 0;   // tilt kiri/kanan   (-90 ~ 90)
-      // Saat HP portrait tegak: beta ≈ 90 → normalize ke 0
+      const beta  = e.beta  ?? 0;
+      const gamma = e.gamma ?? 0;
       gyroX = THREE.MathUtils.degToRad((beta - 90) * 0.6);
       gyroY = THREE.MathUtils.degToRad(gamma       * 0.6);
     };
 
-    // iOS 13+ butuh izin dari user gesture — coba request otomatis,
-    // kalau gagal (butuh gesture) user tinggal tap layar
     const startGyro = () => {
       if (typeof DeviceOrientationEvent !== 'undefined' &&
           typeof DeviceOrientationEvent.requestPermission === 'function') {
@@ -281,7 +147,6 @@ export default function ARScene({ videoSrc, onBack }) {
       }
     };
     startGyro();
-    // Fallback: tap layar untuk request izin iOS
     const onTap = () => { startGyro(); container.removeEventListener('click', onTap); };
     container.addEventListener('click', onTap);
 
@@ -297,25 +162,20 @@ export default function ARScene({ videoSrc, onBack }) {
         imageTargetSrc: import.meta.env.BASE_URL + 'assets/targets.mind',
         maxTrack: 1,
         uiLoading: 'yes',
-        uiScanning: 'no',   // kita pakai overlay scanning sendiri
+        uiScanning: 'no',
         uiError:    'yes',
         filterMinCF: 0.001,
         filterBeta:  0.01,
       });
 
-      // Anchor hanya sebagai trigger — tidak add hologram ke anchor
       const anchor = mindarThree.addAnchor(0);
       anchor.onTargetFound = () => {
         if (hologramGroup.visible) return;
         hologramGroup.visible = true;
         setSpawned(true);
         setStatus('Target found!');
-        videoEl.currentTime = 0;
-        videoEl.play().catch(console.warn);
-        frameRgbEl.currentTime = 0; frameRgbEl.play().catch(console.warn);
-        frameAlphaEl.currentTime = 0; frameAlphaEl.play().catch(console.warn);
       };
-      anchor.onTargetLost = () => {}; // hologram tetap tampil sampai di-close
+      anchor.onTargetLost = () => {};
 
       setStatus('Starting camera...');
       await mindarThree.start();
@@ -325,12 +185,10 @@ export default function ARScene({ videoSrc, onBack }) {
       setStatus('Scanning... (arahkan ke cover album)');
       setReady(true);
 
-      // Fix z-index: video di bawah, overlay canvas MindAR di tengah
       const arVideo  = container.querySelector('video[autoplay]');
       const arCanvas = container.querySelector('canvas[data-engine]') ?? container.querySelector('canvas');
       if (arVideo)  arVideo.style.zIndex  = '0';
       if (arCanvas && arCanvas !== overlayRenderer.domElement) arCanvas.style.zIndex = '1';
-      // Overlay renderer kita ada di z-index 10 (sudah diset di atas)
 
       /* ── Floating + Gyro render loop ── */
       let raf;
@@ -339,20 +197,17 @@ export default function ARScene({ videoSrc, onBack }) {
         raf = requestAnimationFrame(animate);
         const t = (performance.now() - startTime) / 1000;
 
-        // Smooth gyro
         curX += (gyroX - curX) * 0.08;
         curY += (gyroY - curY) * 0.08;
         hologramGroup.rotation.x = curX;
         hologramGroup.rotation.y = curY;
 
-        // Float animation
         hologramGroup.position.y = Math.sin(t * 1.2) * 0.06;
 
         overlayRenderer.render(overlayScene, overlayCamera);
       };
       animate();
 
-      // Simpan ref raf untuk cleanup
       mindarThree._overlayRaf = raf;
       mindarThree._animate    = () => cancelAnimationFrame(raf);
     };
@@ -373,12 +228,6 @@ export default function ARScene({ videoSrc, onBack }) {
       overlayRenderer.domElement.remove();
       window.removeEventListener('deviceorientation', onOrientation);
       container.removeEventListener('click', onTap);
-      videoEl.pause();
-      videoEl.src = '';
-      videoEl.remove();
-      videoRef.current = null;
-      frameRgbEl.pause();   frameRgbEl.src = '';   frameRgbEl.remove();
-      frameAlphaEl.pause(); frameAlphaEl.src = ''; frameAlphaEl.remove();
     };
   }, []);
 
@@ -399,7 +248,7 @@ export default function ARScene({ videoSrc, onBack }) {
         {status}
       </div>
 
-      {/* Scanning overlay — muncul saat kamera siap & hologram belum spawn */}
+      {/* Scanning overlay */}
       {ready && !spawned && (
         <div style={{
           position: 'absolute', inset: 0, zIndex: 50,
@@ -407,7 +256,6 @@ export default function ARScene({ videoSrc, onBack }) {
           alignItems: 'center', justifyContent: 'center',
           pointerEvents: 'none',
         }}>
-          {/* Corner brackets */}
           {[
             { top: 0,    left: 0,    borderTop: '3px solid #fff', borderLeft:  '3px solid #fff' },
             { top: 0,    right: 0,   borderTop: '3px solid #fff', borderRight: '3px solid #fff' },
@@ -416,13 +264,11 @@ export default function ARScene({ videoSrc, onBack }) {
           ].map((s, i) => (
             <div key={i} style={{ position: 'absolute', width: 28, height: 28, ...s }} />
           ))}
-          {/* Scan line */}
           <div style={{
             position: 'absolute', left: 0, right: 0, height: 2,
             background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.7), transparent)',
             animation: 'scanline 2s linear infinite',
           }} />
-          {/* Label */}
           <div style={{
             position: 'absolute', bottom: '18%',
             color: 'rgba(255,255,255,0.85)', fontSize: 14,
@@ -434,18 +280,6 @@ export default function ARScene({ videoSrc, onBack }) {
           </div>
         </div>
       )}
-
-      {/* Mute button — selalu tampil */}
-      <button onClick={handleToggleMute} style={{
-        position: 'absolute', bottom: 28, right: 20, zIndex: 300,
-        background: 'rgba(0,229,255,0.12)', border: '1px solid rgba(0,229,255,0.65)',
-        color: '#00e5ff', borderRadius: 10, padding: '8px 18px', fontSize: 13,
-        fontFamily: 'system-ui, sans-serif', cursor: 'pointer',
-        backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
-        letterSpacing: '0.04em', userSelect: 'none', WebkitUserSelect: 'none',
-      }}>
-        {muted ? '🔇 Unmute' : '🔊 Sound On'}
-      </button>
 
       {/* Back to dashboard */}
       {onBack && (
@@ -461,7 +295,7 @@ export default function ARScene({ videoSrc, onBack }) {
         </button>
       )}
 
-      {/* Close / Despawn button — hanya muncul saat hologram aktif */}
+      {/* Close / Despawn button */}
       {spawned && (
         <button onClick={handleClose} style={{
           position: 'absolute', bottom: 28, left: 20, zIndex: 300,
@@ -480,4 +314,3 @@ export default function ARScene({ videoSrc, onBack }) {
     </div>
   );
 }
-
