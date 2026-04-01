@@ -134,46 +134,30 @@ export default function ARScene({ videoSrc, onBack }) {
       (gltf) => {
         const model = gltf.scene;
 
-        // Log semua nama mesh di GLB (untuk debugging)
-        console.log('=== GLB Mesh Names ===');
-        model.traverse((child) => {
-          if (child.isMesh) console.log('Mesh:', child.name, '| Type:', child.type);
-        });
-
-        // Pastikan material tidak pure-black: jika tidak ada texture, paksa warna putih
+        // Fix material agar tidak pure-black dan terang saat rotate
         model.traverse((child) => {
           if (child.isMesh && child.material) {
             const mats = Array.isArray(child.material) ? child.material : [child.material];
             mats.forEach(mat => {
               if (!mat.map && mat.color) {
                 const c = mat.color;
-                if (c.r < 0.05 && c.g < 0.05 && c.b < 0.05) {
-                  mat.color.set(0xffffff);
-                }
+                if (c.r < 0.05 && c.g < 0.05 && c.b < 0.05) mat.color.set(0xffffff);
               }
-              // Kurangi metalness agar sisi tetap terang saat rotate
               if (mat.metalness !== undefined) mat.metalness = Math.min(mat.metalness, 0.3);
-              // Naikkan envMapIntensity supaya environment map fill ke semua sisi
               if (mat.envMapIntensity !== undefined) mat.envMapIntensity = 2.5;
               mat.needsUpdate = true;
             });
           }
         });
 
-        hologramGroup.add(model);
+        // Replace material mesh layar dengan VideoTexture
+        model.traverse((child) => {
+          if (child.isMesh && child.name === 'd1_mattscreen') {
+            child.material = screenMat;
+          }
+        });
 
-        // Auto-size video plane berdasarkan bounding box GLB
-        const box  = new THREE.Box3().setFromObject(model);
-        const size = new THREE.Vector3();
-        box.getSize(size);
-        const INSET = 0.82;
-        const W = size.x * INSET, H = size.y * INSET;
-        const screenMesh = new THREE.Mesh(
-          new THREE.PlaneGeometry(W, H),
-          screenMat
-        );
-        screenMesh.position.set(0, 0, box.max.z - 0.15);
-        hologramGroup.add(screenMesh);
+        hologramGroup.add(model);
       },
       undefined,
       (err) => { setStatus('ERROR load FBX: ' + (err?.message ?? err)); }
