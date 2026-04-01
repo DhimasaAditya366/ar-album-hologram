@@ -52,13 +52,19 @@ export default function ARScene({ videoSrc, onBack }) {
 
     /* ── Video element (screen) ── */
     const videoEl = document.createElement('video');
-    videoEl.loop        = true;
+    videoEl.loop        = false; // manual loop agar seamless
     videoEl.muted       = false;
     videoEl.playsInline = true;
     videoEl.setAttribute('webkit-playsinline', '');
     videoEl.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1;';
     container.appendChild(videoEl);
     videoRef.current = videoEl;
+    // Seamless loop: reset 100ms sebelum habis untuk hindari flicker
+    videoEl.addEventListener('timeupdate', () => {
+      if (videoEl.duration && videoEl.currentTime >= videoEl.duration - 0.1) {
+        videoEl.currentTime = 0;
+      }
+    });
 
     /* ── Frame video elements (d1_low) — RGB + Alpha terpisah ── */
     const makeFrameVideo = (src) => {
