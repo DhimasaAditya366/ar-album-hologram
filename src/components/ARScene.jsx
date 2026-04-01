@@ -115,8 +115,11 @@ export default function ARScene({ videoSrc, onBack }) {
         const vTex = new THREE.VideoTexture(videoEl);
         vTex.minFilter = THREE.LinearFilter;
         vTex.magFilter = THREE.LinearFilter;
-        vTex.rotation = Math.PI;
         vTex.center.set(0.5, 0.5);
+        // Portrait → Math.PI, Landscape → tambah 90° lagi
+        vTex.rotation = videoEl.videoWidth > videoEl.videoHeight
+          ? Math.PI + Math.PI / 2
+          : Math.PI;
         screenMat.map   = vTex;
         screenMat.color.set(0xffffff);
         screenMat.needsUpdate = true;
