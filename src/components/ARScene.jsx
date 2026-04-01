@@ -134,6 +134,12 @@ export default function ARScene({ videoSrc, onBack }) {
       (gltf) => {
         const model = gltf.scene;
 
+        // Log semua nama mesh di GLB (untuk debugging)
+        console.log('=== GLB Mesh Names ===');
+        model.traverse((child) => {
+          if (child.isMesh) console.log('Mesh:', child.name, '| Type:', child.type);
+        });
+
         // Pastikan material tidak pure-black: jika tidak ada texture, paksa warna putih
         model.traverse((child) => {
           if (child.isMesh && child.material) {
