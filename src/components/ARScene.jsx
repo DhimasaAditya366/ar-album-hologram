@@ -22,7 +22,7 @@ export default function ARScene({ videoSrc, onBack }) {
   const hologramRef  = useRef(null);
   const videoRef     = useRef(null);
   const mindarRef    = useRef(null);
-  const [muted,   setMuted]   = useState(true);
+  const [muted,   setMuted]   = useState(false);
   const [status,  setStatus]  = useState('Initializing...');
   const [spawned, setSpawned] = useState(false);
   const [ready,   setReady]   = useState(false);
@@ -53,7 +53,7 @@ export default function ARScene({ videoSrc, onBack }) {
     /* ── Video element ── */
     const videoEl = document.createElement('video');
     videoEl.loop        = true;
-    videoEl.muted       = true;
+    videoEl.muted       = false;
     videoEl.playsInline = true;
     videoEl.setAttribute('webkit-playsinline', '');
     // Mobile butuh video ada di DOM agar bisa load & fire events
@@ -120,6 +120,9 @@ export default function ARScene({ videoSrc, onBack }) {
         vTex.rotation = videoEl.videoWidth > videoEl.videoHeight
           ? Math.PI + Math.PI / 2
           : Math.PI;
+        // Flip horizontal untuk koreksi mirror
+        vTex.repeat.set(-1, 1);
+        vTex.offset.set(1, 0);
         screenMat.map   = vTex;
         screenMat.color.set(0xffffff);
         screenMat.needsUpdate = true;
@@ -176,8 +179,8 @@ export default function ARScene({ videoSrc, onBack }) {
       const beta  = e.beta  ?? 0;   // tilt maju/mundur  (-180 ~ 180)
       const gamma = e.gamma ?? 0;   // tilt kiri/kanan   (-90 ~ 90)
       // Saat HP portrait tegak: beta ≈ 90 → normalize ke 0
-      gyroX = THREE.MathUtils.degToRad((beta - 90) * 0.35);
-      gyroY = THREE.MathUtils.degToRad(gamma       * 0.35);
+      gyroX = THREE.MathUtils.degToRad((beta - 90) * 0.6);
+      gyroY = THREE.MathUtils.degToRad(gamma       * 0.6);
     };
 
     // iOS 13+ butuh izin dari user gesture — coba request otomatis,
