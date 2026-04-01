@@ -118,18 +118,13 @@ export default function ARScene({ videoSrc, onBack }) {
     hologramRef.current = hologramGroup;
 
     /* ── Frame material (d1_low) — ShaderMaterial RGB + Alpha ── */
-    const rgbTex   = new THREE.VideoTexture(frameRgbEl);
-    const alphaTex = new THREE.VideoTexture(frameAlphaEl);
-    rgbTex.minFilter   = alphaTex.minFilter   = THREE.LinearFilter;
-    rgbTex.magFilter   = alphaTex.magFilter   = THREE.LinearFilter;
-
     const frameMat = new THREE.ShaderMaterial({
       transparent: true,
       depthWrite:  false,
       side: THREE.DoubleSide,
       uniforms: {
-        rgbTex:   { value: rgbTex },
-        alphaTex: { value: alphaTex },
+        rgbTex:   { value: new THREE.Texture() },
+        alphaTex: { value: new THREE.Texture() },
       },
       vertexShader: `
         varying vec2 vUv;
@@ -149,6 +144,23 @@ export default function ARScene({ videoSrc, onBack }) {
         }
       `,
     });
+
+    // Swap VideoTexture ke uniform setelah video load
+    let rgbReady = false, alphaReady = false;
+    const trySwapFrame = () => {
+      if (!rgbReady || !alphaReady) return;
+      const rTex = new THREE.VideoTexture(frameRgbEl);
+      const aTex = new THREE.VideoTexture(frameAlphaEl);
+      rTex.minFilter = aTex.minFilter = THREE.LinearFilter;
+      rTex.magFilter = aTex.magFilter = THREE.LinearFilter;
+      frameMat.uniforms.rgbTex.value   = rTex;
+      frameMat.uniforms.alphaTex.value = aTex;
+      frameMat.needsUpdate = true;
+    };
+    frameRgbEl.addEventListener('loadeddata',   () => { rgbReady   = true; trySwapFrame(); });
+    frameRgbEl.addEventListener('canplay',       () => { rgbReady   = true; trySwapFrame(); });
+    frameAlphaEl.addEventListener('loadeddata',  () => { alphaReady = true; trySwapFrame(); });
+    frameAlphaEl.addEventListener('canplay',     () => { alphaReady = true; trySwapFrame(); });
 
     /* ── VideoTexture — listener dipasang SEBELUM src/load ── */
     const screenMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
