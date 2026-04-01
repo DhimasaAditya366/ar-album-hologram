@@ -50,16 +50,26 @@ export default function ARScene({ videoSrc, onBack }) {
   useEffect(() => {
     const container = containerRef.current;
 
-    /* ── Video element ── */
+    /* ── Video element (screen) ── */
     const videoEl = document.createElement('video');
     videoEl.loop        = true;
     videoEl.muted       = false;
     videoEl.playsInline = true;
     videoEl.setAttribute('webkit-playsinline', '');
-    // Mobile butuh video ada di DOM agar bisa load & fire events
     videoEl.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1;';
     container.appendChild(videoEl);
     videoRef.current = videoEl;
+
+    /* ── Frame video element (d1_low boundary) ── */
+    const frameEl = document.createElement('video');
+    frameEl.loop        = true;
+    frameEl.muted       = true;
+    frameEl.playsInline = true;
+    frameEl.setAttribute('webkit-playsinline', '');
+    frameEl.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1;';
+    container.appendChild(frameEl);
+    frameEl.src = import.meta.env.BASE_URL + 'assets/Frame.mov?v=' + Date.now();
+    frameEl.load();
 
     /* ── Overlay Three.js renderer (terpisah dari MindAR) ── */
     const W = container.clientWidth;
@@ -103,6 +113,24 @@ export default function ARScene({ videoSrc, onBack }) {
     hologramGroup.visible = false;
     overlayScene.add(hologramGroup);
     hologramRef.current = hologramGroup;
+
+    /* ── Frame material (d1_low) ── */
+    const frameMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide, transparent: true });
+    const swapToFrame = (() => {
+      let done = false;
+      return () => {
+        if (done) return;
+        done = true;
+        const fTex = new THREE.VideoTexture(frameEl);
+        fTex.minFilter = THREE.LinearFilter;
+        fTex.magFilter = THREE.LinearFilter;
+        frameMat.map = fTex;
+        frameMat.color.set(0xffffff);
+        frameMat.needsUpdate = true;
+      };
+    })();
+    frameEl.addEventListener('loadeddata', swapToFrame);
+    frameEl.addEventListener('canplay',    swapToFrame);
 
     /* ── VideoTexture — listener dipasang SEBELUM src/load ── */
     const screenMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
@@ -155,11 +183,11 @@ export default function ARScene({ videoSrc, onBack }) {
           }
         });
 
-        // Replace material mesh layar dengan VideoTexture
+        // Replace material mesh layar & frame dengan VideoTexture
         model.traverse((child) => {
-          if (child.isMesh && child.name === 'd1_mattscreen') {
-            child.material = screenMat;
-          }
+          if (!child.isMesh) return;
+          if (child.name === 'd1_mattscreen') child.material = screenMat;
+          if (child.name === 'd1_low')        child.material = frameMat;
         });
 
         hologramGroup.add(model);
@@ -224,6 +252,8 @@ export default function ARScene({ videoSrc, onBack }) {
         setStatus('Target found!');
         videoEl.currentTime = 0;
         videoEl.play().catch(console.warn);
+        frameEl.currentTime = 0;
+        frameEl.play().catch(console.warn);
       };
       anchor.onTargetLost = () => {}; // hologram tetap tampil sampai di-close
 
@@ -287,6 +317,9 @@ export default function ARScene({ videoSrc, onBack }) {
       videoEl.src = '';
       videoEl.remove();
       videoRef.current = null;
+      frameEl.pause();
+      frameEl.src = '';
+      frameEl.remove();
     };
   }, []);
 
