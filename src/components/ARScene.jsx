@@ -17,10 +17,12 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { MindARThree } from 'mind-ar/dist/mindar-image-three.prod.js';
 
-export default function ARScene({ onBack }) {
+export default function ARScene({ videoSrc, onBack }) {
   const containerRef = useRef(null);
   const hologramRef  = useRef(null);
+  const videoRef     = useRef(null);
   const mindarRef    = useRef(null);
+  const [muted,   setMuted]   = useState(false);
   const [status,  setStatus]  = useState('Initializing...');
   const [spawned, setSpawned] = useState(false);
   const [ready,   setReady]   = useState(false);
@@ -32,12 +34,34 @@ export default function ARScene({ onBack }) {
 
   const handleClose = () => {
     if (hologramRef.current) hologramRef.current.visible = false;
+    videoRef.current?.pause();
     setSpawned(false);
     setStatus('Scanning... (arahkan ke cover album)');
   };
 
+  const handleToggleMute = () => {
+    const vid = videoRef.current;
+    if (!vid) return;
+    vid.muted = !vid.muted;
+    setMuted(vid.muted);
+    if (!vid.muted) vid.play().catch(() => {});
+  };
+
   useEffect(() => {
     const container = containerRef.current;
+
+    /* ── Video element (in DOM for mobile compatibility) ── */
+    const videoEl = document.createElement('video');
+    videoEl.loop        = true;
+    videoEl.muted       = false;
+    videoEl.playsInline = true;
+    videoEl.setAttribute('webkit-playsinline', '');
+    videoEl.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1;';
+    container.appendChild(videoEl);
+    videoRef.current = videoEl;
+
+    videoEl.src = (videoSrc || import.meta.env.BASE_URL + 'assets/greeting.mp4') + '?v=' + Date.now();
+    videoEl.load();
 
     /* ── Overlay Three.js renderer (terpisah dari MindAR) ── */
     const W = container.clientWidth;
@@ -50,7 +74,7 @@ export default function ARScene({ onBack }) {
     overlayRenderer.outputEncoding = THREE.sRGBEncoding;
     overlayRenderer.physicallyCorrectLights = true;
 
-    /* ── Environment map (diperlukan agar material PBR/metalik GLB tidak hitam) ── */
+    /* ── Environment map ── */
     const pmremGenerator = new THREE.PMREMGenerator(overlayRenderer);
     const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
     pmremGenerator.dispose();
@@ -64,7 +88,7 @@ export default function ARScene({ onBack }) {
     const overlayCamera = new THREE.PerspectiveCamera(60, W / H, 0.01, 100);
     overlayCamera.position.set(0, 0, 2.5);
 
-    /* ── Lighting: ambient kuat + 6 arah cardinal ── */
+    /* ── Lighting ── */
     overlayScene.add(new THREE.AmbientLight(0xffffff, 3.5));
     [
       [ 1, 0, 0], [-1, 0, 0],
@@ -76,18 +100,46 @@ export default function ARScene({ onBack }) {
       overlayScene.add(l);
     });
 
-    /* ── Hologram group (wrapper untuk gyro + float) ── */
+    /* ── Hologram group ── */
     const hologramGroup = new THREE.Group();
     hologramGroup.visible = false;
     overlayScene.add(hologramGroup);
     hologramRef.current = hologramGroup;
 
-    // Lampu dalam box agar sisi interior tidak gelap
     const innerLight = new THREE.PointLight(0xffffff, 4, 2);
     innerLight.position.set(0, 0, 0);
     hologramGroup.add(innerLight);
 
-    /* ── Load GLB model ── */
+    /* ── Video plane material ── */
+    const videoMat = new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      side: THREE.DoubleSide,
+      transparent: true,
+    });
+
+    // Swap ke VideoTexture saat video siap
+    const swapToVideo = (() => {
+      let done = false;
+      return () => {
+        if (done) return;
+        done = true;
+        const vTex = new THREE.VideoTexture(videoEl);
+        vTex.minFilter = THREE.LinearFilter;
+        vTex.magFilter = THREE.LinearFilter;
+        vTex.center.set(0.5, 0.5);
+        vTex.rotation = videoEl.videoWidth > videoEl.videoHeight
+          ? Math.PI + Math.PI / 2
+          : Math.PI;
+        videoMat.map   = vTex;
+        videoMat.color.set(0xffffff);
+        videoMat.needsUpdate = true;
+      };
+    })();
+
+    videoEl.addEventListener('loadeddata', swapToVideo);
+    videoEl.addEventListener('canplay',    swapToVideo);
+
+    /* ── Load GLB model (texture asli, tidak di-replace) ── */
     const gltfLoader = new GLTFLoader();
     gltfLoader.load(
       import.meta.env.BASE_URL + 'assets/model.glb?v=' + Date.now(),
@@ -120,6 +172,22 @@ export default function ARScene({ onBack }) {
         });
 
         hologramGroup.add(model);
+
+        // Posisikan video plane di depan model berdasarkan bounding box
+        const box  = new THREE.Box3().setFromObject(model);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+
+        const planeW = size.x * 0.85;
+        const planeH = size.y * 0.85;
+        const planeZ = box.max.z + 0.01;
+
+        const videoPlane = new THREE.Mesh(
+          new THREE.PlaneGeometry(planeW, planeH),
+          videoMat
+        );
+        videoPlane.position.set(0, 0, planeZ);
+        hologramGroup.add(videoPlane);
       },
       undefined,
       (err) => { setStatus('ERROR load GLB: ' + (err?.message ?? err)); }
@@ -150,7 +218,7 @@ export default function ARScene({ onBack }) {
     const onTap = () => { startGyro(); container.removeEventListener('click', onTap); };
     container.addEventListener('click', onTap);
 
-    /* ── MindAR (camera feed + image detection trigger) ── */
+    /* ── MindAR ── */
     let mindarThree = null;
     let destroyed   = false;
     mindarRef.current = null;
@@ -174,6 +242,8 @@ export default function ARScene({ onBack }) {
         hologramGroup.visible = true;
         setSpawned(true);
         setStatus('Target found!');
+        videoEl.currentTime = 0;
+        videoEl.play().catch(console.warn);
       };
       anchor.onTargetLost = () => {};
 
@@ -190,7 +260,7 @@ export default function ARScene({ onBack }) {
       if (arVideo)  arVideo.style.zIndex  = '0';
       if (arCanvas && arCanvas !== overlayRenderer.domElement) arCanvas.style.zIndex = '1';
 
-      /* ── Floating + Gyro render loop ── */
+      /* ── Render loop ── */
       let raf;
       const startTime = performance.now();
       const animate = () => {
@@ -228,6 +298,10 @@ export default function ARScene({ onBack }) {
       overlayRenderer.domElement.remove();
       window.removeEventListener('deviceorientation', onOrientation);
       container.removeEventListener('click', onTap);
+      videoEl.pause();
+      videoEl.src = '';
+      videoEl.remove();
+      videoRef.current = null;
     };
   }, []);
 
@@ -280,6 +354,18 @@ export default function ARScene({ onBack }) {
           </div>
         </div>
       )}
+
+      {/* Mute button */}
+      <button onClick={handleToggleMute} style={{
+        position: 'absolute', bottom: 28, right: 20, zIndex: 300,
+        background: 'rgba(0,229,255,0.12)', border: '1px solid rgba(0,229,255,0.65)',
+        color: '#00e5ff', borderRadius: 10, padding: '8px 18px', fontSize: 13,
+        fontFamily: 'system-ui, sans-serif', cursor: 'pointer',
+        backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+        letterSpacing: '0.04em', userSelect: 'none', WebkitUserSelect: 'none',
+      }}>
+        {muted ? '🔇 Unmute' : '🔊 Sound On'}
+      </button>
 
       {/* Back to dashboard */}
       {onBack && (
