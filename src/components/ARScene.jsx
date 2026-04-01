@@ -214,10 +214,10 @@ export default function ARScene({ videoSrc, onBack }) {
             }
             if (mat.metalness !== undefined)     mat.metalness     = Math.min(mat.metalness, 0.3);
             if (mat.envMapIntensity !== undefined) mat.envMapIntensity = 2.5;
-            // Emissive agar sisi dalam tidak gelap
+            // Emissive putih agar sisi dalam tidak gelap
             if (mat.emissive !== undefined) {
-              mat.emissive.set(mat.color ?? 0xffffff);
-              mat.emissiveIntensity = 0.4;
+              mat.emissive.set(0xffffff);
+              mat.emissiveIntensity = 0.6;
             }
             mat.needsUpdate = true;
           });
