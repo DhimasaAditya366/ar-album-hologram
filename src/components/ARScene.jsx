@@ -117,6 +117,11 @@ export default function ARScene({ videoSrc, onBack }) {
     overlayScene.add(hologramGroup);
     hologramRef.current = hologramGroup;
 
+    // Lampu dalam box agar sisi interior tidak gelap
+    const innerLight = new THREE.PointLight(0xffffff, 4, 2);
+    innerLight.position.set(0, 0, 0);
+    hologramGroup.add(innerLight);
+
     /* ── Frame material (d1_low) — ShaderMaterial RGB + Alpha ── */
     const frameMat = new THREE.ShaderMaterial({
       transparent: true,
