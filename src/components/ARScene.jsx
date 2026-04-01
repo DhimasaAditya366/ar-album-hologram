@@ -115,9 +115,6 @@ export default function ARScene({ videoSrc, onBack }) {
         const vTex = new THREE.VideoTexture(videoEl);
         vTex.minFilter = THREE.LinearFilter;
         vTex.magFilter = THREE.LinearFilter;
-        // Koreksi rotasi UV agar video portrait tegak (mesh UV miring 90° ke kiri)
-        vTex.rotation = Math.PI / 2;
-        vTex.center.set(0.5, 0.5);
         screenMat.map   = vTex;
         screenMat.color.set(0xffffff);
         screenMat.needsUpdate = true;
