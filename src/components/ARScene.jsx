@@ -214,10 +214,18 @@ export default function ARScene({ videoSrc, onBack }) {
             }
             if (mat.metalness !== undefined)     mat.metalness     = Math.min(mat.metalness, 0.3);
             if (mat.envMapIntensity !== undefined) mat.envMapIntensity = 2.5;
-            // Emissive putih agar sisi dalam tidak gelap
+            // Terangkan sisi dalam
             if (mat.emissive !== undefined) {
+              // MeshStandardMaterial / MeshPhongMaterial
               mat.emissive.set(0xffffff);
               mat.emissiveIntensity = 1.5;
+            } else if (mat.color !== undefined) {
+              // MeshBasicMaterial — tidak ada emissive, brighten color langsung
+              mat.color.setRGB(
+                Math.min(mat.color.r * 4, 1),
+                Math.min(mat.color.g * 4, 1),
+                Math.min(mat.color.b * 4, 1)
+              );
             }
             mat.needsUpdate = true;
           });
