@@ -59,11 +59,10 @@ export default function ARScene({ videoSrc, onBack }) {
     videoEl.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1;';
     container.appendChild(videoEl);
     videoRef.current = videoEl;
-    // Seamless loop: reset 100ms sebelum habis untuk hindari flicker
-    videoEl.addEventListener('timeupdate', () => {
-      if (videoEl.duration && videoEl.currentTime >= videoEl.duration - 0.1) {
-        videoEl.currentTime = 0;
-      }
+    // Seamless loop via ended event
+    videoEl.addEventListener('ended', () => {
+      videoEl.currentTime = 0;
+      videoEl.play().catch(() => {});
     });
 
     /* ── Frame video elements (d1_low) — RGB + Alpha terpisah ── */
@@ -79,12 +78,12 @@ export default function ARScene({ videoSrc, onBack }) {
     };
     const frameRgbEl   = makeFrameVideo('Frame_rgb.mp4');
     const frameAlphaEl = makeFrameVideo('Frame_alpha.mp4');
-    // seamless loop — reset keduanya bersamaan supaya rgb & alpha tetap sinkron
-    frameRgbEl.addEventListener('timeupdate', () => {
-      if (frameRgbEl.duration && frameRgbEl.currentTime >= frameRgbEl.duration - 0.1) {
-        frameRgbEl.currentTime   = 0;
-        frameAlphaEl.currentTime = 0;
-      }
+    // seamless loop — rgb ended → reset & replay keduanya bersamaan
+    frameRgbEl.addEventListener('ended', () => {
+      frameRgbEl.currentTime   = 0;
+      frameAlphaEl.currentTime = 0;
+      frameRgbEl.play().catch(() => {});
+      frameAlphaEl.play().catch(() => {});
     });
 
     /* ── Overlay Three.js renderer (terpisah dari MindAR) ── */
