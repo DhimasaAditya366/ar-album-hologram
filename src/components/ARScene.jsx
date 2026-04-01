@@ -60,16 +60,19 @@ export default function ARScene({ videoSrc, onBack }) {
     container.appendChild(videoEl);
     videoRef.current = videoEl;
 
-    /* ── Frame video element (d1_low boundary) ── */
-    const frameEl = document.createElement('video');
-    frameEl.loop        = true;
-    frameEl.muted       = true;
-    frameEl.playsInline = true;
-    frameEl.setAttribute('webkit-playsinline', '');
-    frameEl.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1;';
-    container.appendChild(frameEl);
-    frameEl.src = import.meta.env.BASE_URL + 'assets/Frame.mov?v=' + Date.now();
-    frameEl.load();
+    /* ── Frame video elements (d1_low) — RGB + Alpha terpisah ── */
+    const makeFrameVideo = (src) => {
+      const el = document.createElement('video');
+      el.loop = true; el.muted = true; el.playsInline = true;
+      el.setAttribute('webkit-playsinline', '');
+      el.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1;';
+      container.appendChild(el);
+      el.src = import.meta.env.BASE_URL + 'assets/' + src + '?v=' + Date.now();
+      el.load();
+      return el;
+    };
+    const frameRgbEl   = makeFrameVideo('Frame_rgb.mp4');
+    const frameAlphaEl = makeFrameVideo('Frame_alpha.mp4');
 
     /* ── Overlay Three.js renderer (terpisah dari MindAR) ── */
     const W = container.clientWidth;
@@ -114,23 +117,38 @@ export default function ARScene({ videoSrc, onBack }) {
     overlayScene.add(hologramGroup);
     hologramRef.current = hologramGroup;
 
-    /* ── Frame material (d1_low) ── */
-    const frameMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide, transparent: true, depthWrite: false });
-    const swapToFrame = (() => {
-      let done = false;
-      return () => {
-        if (done) return;
-        done = true;
-        const fTex = new THREE.VideoTexture(frameEl);
-        fTex.minFilter = THREE.LinearFilter;
-        fTex.magFilter = THREE.LinearFilter;
-        frameMat.map = fTex;
-        frameMat.color.set(0xffffff);
-        frameMat.needsUpdate = true;
-      };
-    })();
-    frameEl.addEventListener('loadeddata', swapToFrame);
-    frameEl.addEventListener('canplay',    swapToFrame);
+    /* ── Frame material (d1_low) — ShaderMaterial RGB + Alpha ── */
+    const rgbTex   = new THREE.VideoTexture(frameRgbEl);
+    const alphaTex = new THREE.VideoTexture(frameAlphaEl);
+    rgbTex.minFilter   = alphaTex.minFilter   = THREE.LinearFilter;
+    rgbTex.magFilter   = alphaTex.magFilter   = THREE.LinearFilter;
+
+    const frameMat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite:  false,
+      side: THREE.DoubleSide,
+      uniforms: {
+        rgbTex:   { value: rgbTex },
+        alphaTex: { value: alphaTex },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D rgbTex;
+        uniform sampler2D alphaTex;
+        varying vec2 vUv;
+        void main() {
+          vec3  color = texture2D(rgbTex,   vUv).rgb;
+          float alpha = texture2D(alphaTex, vUv).r;
+          gl_FragColor = vec4(color, alpha);
+        }
+      `,
+    });
 
     /* ── VideoTexture — listener dipasang SEBELUM src/load ── */
     const screenMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
@@ -252,8 +270,8 @@ export default function ARScene({ videoSrc, onBack }) {
         setStatus('Target found!');
         videoEl.currentTime = 0;
         videoEl.play().catch(console.warn);
-        frameEl.currentTime = 0;
-        frameEl.play().catch(console.warn);
+        frameRgbEl.currentTime = 0; frameRgbEl.play().catch(console.warn);
+        frameAlphaEl.currentTime = 0; frameAlphaEl.play().catch(console.warn);
       };
       anchor.onTargetLost = () => {}; // hologram tetap tampil sampai di-close
 
@@ -317,9 +335,8 @@ export default function ARScene({ videoSrc, onBack }) {
       videoEl.src = '';
       videoEl.remove();
       videoRef.current = null;
-      frameEl.pause();
-      frameEl.src = '';
-      frameEl.remove();
+      frameRgbEl.pause();   frameRgbEl.src = '';   frameRgbEl.remove();
+      frameAlphaEl.pause(); frameAlphaEl.src = ''; frameAlphaEl.remove();
     };
   }, []);
 
