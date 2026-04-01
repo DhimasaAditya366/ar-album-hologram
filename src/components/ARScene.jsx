@@ -69,7 +69,7 @@ export default function ARScene({ videoSrc, onBack }) {
     /* ── Frame video elements (d1_low) — RGB + Alpha terpisah ── */
     const makeFrameVideo = (src) => {
       const el = document.createElement('video');
-      el.loop = true; el.muted = true; el.playsInline = true;
+      el.loop = false; el.muted = true; el.playsInline = true;
       el.setAttribute('webkit-playsinline', '');
       el.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1;';
       container.appendChild(el);
@@ -79,6 +79,13 @@ export default function ARScene({ videoSrc, onBack }) {
     };
     const frameRgbEl   = makeFrameVideo('Frame_rgb.mp4');
     const frameAlphaEl = makeFrameVideo('Frame_alpha.mp4');
+    // seamless loop — reset keduanya bersamaan supaya rgb & alpha tetap sinkron
+    frameRgbEl.addEventListener('timeupdate', () => {
+      if (frameRgbEl.duration && frameRgbEl.currentTime >= frameRgbEl.duration - 0.1) {
+        frameRgbEl.currentTime   = 0;
+        frameAlphaEl.currentTime = 0;
+      }
+    });
 
     /* ── Overlay Three.js renderer (terpisah dari MindAR) ── */
     const W = container.clientWidth;
