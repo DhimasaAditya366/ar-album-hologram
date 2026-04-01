@@ -202,20 +202,25 @@ export default function ARScene({ videoSrc, onBack }) {
       (gltf) => {
         const model = gltf.scene;
 
-        // Fix material agar tidak pure-black dan terang saat rotate
+        // Fix material + emission pada semua mesh (kecuali screen & frame)
         model.traverse((child) => {
-          if (child.isMesh && child.material) {
-            const mats = Array.isArray(child.material) ? child.material : [child.material];
-            mats.forEach(mat => {
-              if (!mat.map && mat.color) {
-                const c = mat.color;
-                if (c.r < 0.05 && c.g < 0.05 && c.b < 0.05) mat.color.set(0xffffff);
-              }
-              if (mat.metalness !== undefined) mat.metalness = Math.min(mat.metalness, 0.3);
-              if (mat.envMapIntensity !== undefined) mat.envMapIntensity = 2.5;
-              mat.needsUpdate = true;
-            });
-          }
+          if (!child.isMesh || !child.material) return;
+          if (child.name === 'd1_mattscreen' || child.name === 'd1_low') return;
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          mats.forEach(mat => {
+            if (!mat.map && mat.color) {
+              const c = mat.color;
+              if (c.r < 0.05 && c.g < 0.05 && c.b < 0.05) mat.color.set(0xffffff);
+            }
+            if (mat.metalness !== undefined)     mat.metalness     = Math.min(mat.metalness, 0.3);
+            if (mat.envMapIntensity !== undefined) mat.envMapIntensity = 2.5;
+            // Emissive agar sisi dalam tidak gelap
+            if (mat.emissive !== undefined) {
+              mat.emissive.set(mat.color ?? 0xffffff);
+              mat.emissiveIntensity = 0.4;
+            }
+            mat.needsUpdate = true;
+          });
         });
 
         // Replace material mesh layar & frame dengan VideoTexture
