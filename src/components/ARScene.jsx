@@ -120,9 +120,9 @@ export default function ARScene({ videoSrc, onBack }) {
         vTex.rotation = videoEl.videoWidth > videoEl.videoHeight
           ? Math.PI + Math.PI / 2
           : Math.PI;
-        // Flip horizontal untuk koreksi mirror
-        vTex.repeat.set(-1, 1);
-        vTex.offset.set(1, 0);
+        // Flip Y (dikombinasi rotasi 180° = flip horizontal visual yang benar)
+        vTex.repeat.set(1, -1);
+        vTex.offset.set(0, 1);
         screenMat.map   = vTex;
         screenMat.color.set(0xffffff);
         screenMat.needsUpdate = true;
