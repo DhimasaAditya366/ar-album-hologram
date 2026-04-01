@@ -217,7 +217,7 @@ export default function ARScene({ videoSrc, onBack }) {
             // Emissive putih agar sisi dalam tidak gelap
             if (mat.emissive !== undefined) {
               mat.emissive.set(0xffffff);
-              mat.emissiveIntensity = 0.6;
+              mat.emissiveIntensity = 1.5;
             }
             mat.needsUpdate = true;
           });
