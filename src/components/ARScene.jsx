@@ -115,7 +115,7 @@ export default function ARScene({ videoSrc, onBack }) {
     hologramRef.current = hologramGroup;
 
     /* ── Frame material (d1_low) ── */
-    const frameMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide, transparent: true });
+    const frameMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide, transparent: true, depthWrite: false });
     const swapToFrame = (() => {
       let done = false;
       return () => {
