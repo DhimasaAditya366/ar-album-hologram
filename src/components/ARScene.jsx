@@ -83,6 +83,7 @@ export default function ARScene({ videoSrc, onBack }) {
 
     const overlayScene  = new THREE.Scene();
     overlayScene.environment = envTexture;
+    overlayScene.environmentIntensity = 0.3;
     const overlayCamera = new THREE.PerspectiveCamera(60, W / H, 0.01, 100);
     overlayCamera.position.set(0, 0, 2.5);
 
