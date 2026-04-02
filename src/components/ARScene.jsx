@@ -177,8 +177,8 @@ export default function ARScene({ videoSrc, onBack }) {
       const beta  = e.beta  ?? 0;   // tilt maju/mundur  (-180 ~ 180)
       const gamma = e.gamma ?? 0;   // tilt kiri/kanan   (-90 ~ 90)
       // Saat HP portrait tegak: beta ≈ 90 → normalize ke 0
-      gyroX = THREE.MathUtils.degToRad((beta - 90) * 0.6);
-      gyroY = THREE.MathUtils.degToRad(gamma       * 0.6);
+      gyroX = THREE.MathUtils.degToRad((beta - 90) * 0.3);
+      gyroY = THREE.MathUtils.degToRad(gamma       * 0.3);
     };
 
     // iOS 13+ butuh izin dari user gesture — coba request otomatis,
