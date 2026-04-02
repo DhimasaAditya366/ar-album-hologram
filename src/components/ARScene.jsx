@@ -87,13 +87,13 @@ export default function ARScene({ videoSrc, onBack }) {
     overlayCamera.position.set(0, 0, 2.5);
 
     /* ── Lighting: ambient kuat + 6 arah cardinal ── */
-    overlayScene.add(new THREE.AmbientLight(0xffffff, 3.5));
+    overlayScene.add(new THREE.AmbientLight(0xffffff, 1.5));
     [
       [ 1, 0, 0], [-1, 0, 0],  // kiri & kanan
       [ 0, 1, 0], [ 0,-1, 0],  // atas & bawah
       [ 0, 0, 1], [ 0, 0,-1],  // depan & belakang
     ].forEach(([x, y, z]) => {
-      const l = new THREE.DirectionalLight(0xffffff, 1.0);
+      const l = new THREE.DirectionalLight(0xffffff, 0.4);
       l.position.set(x, y, z);
       overlayScene.add(l);
     });
@@ -148,8 +148,8 @@ export default function ARScene({ videoSrc, onBack }) {
                 const c = mat.color;
                 if (c.r < 0.05 && c.g < 0.05 && c.b < 0.05) mat.color.set(0xffffff);
               }
-              if (mat.metalness !== undefined) mat.metalness = Math.min(mat.metalness, 0.3);
-              if (mat.envMapIntensity !== undefined) mat.envMapIntensity = 2.5;
+              if (mat.metalness !== undefined) mat.metalness = Math.min(mat.metalness, 0.5);
+              if (mat.envMapIntensity !== undefined) mat.envMapIntensity = 1.0;
               mat.needsUpdate = true;
             });
           }
