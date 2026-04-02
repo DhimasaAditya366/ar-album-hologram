@@ -87,12 +87,11 @@ export default function ARScene({ videoSrc, onBack }) {
     const overlayCamera = new THREE.PerspectiveCamera(60, W / H, 0.01, 100);
     overlayCamera.position.set(0, 0, 2.5);
 
-    /* ── Lighting: ambient kuat + 6 arah cardinal ── */
+    /* ── Lighting: ambient + 4 arah cardinal ── */
     overlayScene.add(new THREE.AmbientLight(0xffffff, 0.8));
     [
       [ 1, 0, 0], [-1, 0, 0],  // kiri & kanan
       [ 0, 1, 0], [ 0,-1, 0],  // atas & bawah
-      [ 0, 0, 1], [ 0, 0,-1],  // depan & belakang
     ].forEach(([x, y, z]) => {
       const l = new THREE.DirectionalLight(0xffffff, 0.2);
       l.position.set(x, y, z);
@@ -245,10 +244,8 @@ export default function ARScene({ videoSrc, onBack }) {
 
       /* ── Floating + Gyro render loop ── */
       let raf;
-      const startTime = performance.now();
       const animate = () => {
         raf = requestAnimationFrame(animate);
-        const t = (performance.now() - startTime) / 1000;
 
         // Smooth gyro
         curX += (gyroX - curX) * 0.08;
@@ -256,8 +253,7 @@ export default function ARScene({ videoSrc, onBack }) {
         hologramGroup.rotation.x = curX;
         hologramGroup.rotation.y = curY;
 
-        // Float animation
-        hologramGroup.position.y = Math.sin(t * 1.2) * 0.06;
+        hologramGroup.position.y = 0;
         hologramGroup.position.z = 1.0;
 
         overlayRenderer.render(overlayScene, overlayCamera);
