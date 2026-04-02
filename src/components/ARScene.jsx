@@ -258,7 +258,7 @@ export default function ARScene({ videoSrc, onBack }) {
 
         // Float animation
         hologramGroup.position.y = Math.sin(t * 1.2) * 0.06;
-        hologramGroup.position.z = 0.5;
+        hologramGroup.position.z = 1.0;
 
         overlayRenderer.render(overlayScene, overlayCamera);
       };
