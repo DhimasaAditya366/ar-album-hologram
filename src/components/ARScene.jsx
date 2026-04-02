@@ -83,18 +83,18 @@ export default function ARScene({ videoSrc, onBack }) {
 
     const overlayScene  = new THREE.Scene();
     overlayScene.environment = envTexture;
-    overlayScene.environmentIntensity = 0.3;
+    overlayScene.environmentIntensity = 0.1;
     const overlayCamera = new THREE.PerspectiveCamera(60, W / H, 0.01, 100);
     overlayCamera.position.set(0, 0, 2.5);
 
     /* ── Lighting: ambient kuat + 6 arah cardinal ── */
-    overlayScene.add(new THREE.AmbientLight(0xffffff, 1.5));
+    overlayScene.add(new THREE.AmbientLight(0xffffff, 0.8));
     [
       [ 1, 0, 0], [-1, 0, 0],  // kiri & kanan
       [ 0, 1, 0], [ 0,-1, 0],  // atas & bawah
       [ 0, 0, 1], [ 0, 0,-1],  // depan & belakang
     ].forEach(([x, y, z]) => {
-      const l = new THREE.DirectionalLight(0xffffff, 0.4);
+      const l = new THREE.DirectionalLight(0xffffff, 0.2);
       l.position.set(x, y, z);
       overlayScene.add(l);
     });
@@ -177,8 +177,8 @@ export default function ARScene({ videoSrc, onBack }) {
       const beta  = e.beta  ?? 0;   // tilt maju/mundur  (-180 ~ 180)
       const gamma = e.gamma ?? 0;   // tilt kiri/kanan   (-90 ~ 90)
       // Saat HP portrait tegak: beta ≈ 90 → normalize ke 0
-      gyroX = THREE.MathUtils.degToRad((beta - 90) * 0.3);
-      gyroY = THREE.MathUtils.degToRad(gamma       * 0.3);
+      gyroX = THREE.MathUtils.degToRad((beta - 90) * 0.15);
+      gyroY = THREE.MathUtils.degToRad(gamma       * 0.15);
     };
 
     // iOS 13+ butuh izin dari user gesture — coba request otomatis,
