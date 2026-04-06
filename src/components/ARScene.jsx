@@ -83,17 +83,17 @@ export default function ARScene({ videoSrc, onBack }) {
 
     const overlayScene  = new THREE.Scene();
     overlayScene.environment = envTexture;
-    overlayScene.environmentIntensity = 0.1;
+    overlayScene.environmentIntensity = 0.05;
     const overlayCamera = new THREE.PerspectiveCamera(60, W / H, 0.01, 100);
     overlayCamera.position.set(0, 0, 2.5);
 
     /* ── Lighting: ambient + 4 arah cardinal ── */
-    overlayScene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    overlayScene.add(new THREE.AmbientLight(0xffffff, 0.3));
     [
       [ 1, 0, 0], [-1, 0, 0],  // kiri & kanan
       [ 0, 1, 0], [ 0,-1, 0],  // atas & bawah
     ].forEach(([x, y, z]) => {
-      const l = new THREE.DirectionalLight(0xffffff, 0.2);
+      const l = new THREE.DirectionalLight(0xffffff, 0.15);
       l.position.set(x, y, z);
       overlayScene.add(l);
     });
@@ -149,8 +149,8 @@ export default function ARScene({ videoSrc, onBack }) {
                 const c = mat.color;
                 if (c.r < 0.05 && c.g < 0.05 && c.b < 0.05) mat.color.set(0xffffff);
               }
-              if (mat.metalness !== undefined) mat.metalness = Math.min(mat.metalness, 0.5);
-              if (mat.envMapIntensity !== undefined) mat.envMapIntensity = 1.0;
+              if (mat.metalness !== undefined) mat.metalness = Math.min(mat.metalness, 0.7);
+              if (mat.envMapIntensity !== undefined) mat.envMapIntensity = 0.5;
               mat.needsUpdate = true;
             });
           }
@@ -255,7 +255,7 @@ export default function ARScene({ videoSrc, onBack }) {
         hologramGroup.rotation.y = curY;
 
         hologramGroup.position.y = 0;
-        hologramGroup.position.z = 1.0;
+        hologramGroup.position.z = 0.3;
 
         overlayRenderer.render(overlayScene, overlayCamera);
       };
