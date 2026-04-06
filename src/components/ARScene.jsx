@@ -98,7 +98,7 @@ export default function ARScene({ videoSrc, onBack }) {
       overlayScene.add(l);
     });
     // Top light lebih kuat
-    const topLight = new THREE.DirectionalLight(0xffffff, 0.4);
+    const topLight = new THREE.DirectionalLight(0xffffff, 0.7);
     topLight.position.set(0, 1, 0);
     overlayScene.add(topLight);
 
