@@ -83,12 +83,12 @@ export default function ARScene({ videoSrc, onBack }) {
 
     const overlayScene  = new THREE.Scene();
     overlayScene.environment = envTexture;
-    overlayScene.environmentIntensity = 0.05;
+    overlayScene.environmentIntensity = 0.2;
     const overlayCamera = new THREE.PerspectiveCamera(60, W / H, 0.01, 100);
     overlayCamera.position.set(0, 0, 2.5);
 
     /* ── Lighting: ambient + 4 arah cardinal ── */
-    overlayScene.add(new THREE.AmbientLight(0xffffff, 0.3));
+    overlayScene.add(new THREE.AmbientLight(0xffffff, 0.15));
     [
       [ 1, 0, 0], [-1, 0, 0],  // kiri & kanan
       [ 0, 1, 0], [ 0,-1, 0],  // atas & bawah
@@ -149,8 +149,8 @@ export default function ARScene({ videoSrc, onBack }) {
                 const c = mat.color;
                 if (c.r < 0.05 && c.g < 0.05 && c.b < 0.05) mat.color.set(0xffffff);
               }
-              if (mat.metalness !== undefined) mat.metalness = Math.min(mat.metalness, 0.7);
-              if (mat.envMapIntensity !== undefined) mat.envMapIntensity = 0.5;
+              if (mat.metalness !== undefined) mat.metalness = Math.min(mat.metalness, 0.95);
+              if (mat.envMapIntensity !== undefined) mat.envMapIntensity = 1.2;
               mat.needsUpdate = true;
             });
           }
@@ -249,8 +249,8 @@ export default function ARScene({ videoSrc, onBack }) {
         raf = requestAnimationFrame(animate);
 
         // Smooth gyro
-        curX += (gyroX - curX) * 0.08;
-        curY += (gyroY - curY) * 0.08;
+        curX += (gyroX - curX) * 0.12;
+        curY += (gyroY - curY) * 0.12;
         hologramGroup.rotation.x = curX;
         hologramGroup.rotation.y = curY;
 
