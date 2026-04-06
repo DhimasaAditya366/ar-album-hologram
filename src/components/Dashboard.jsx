@@ -1,17 +1,10 @@
 const AR_ITEMS = [
   {
     id: 'dummy',
-    title: 'AR dummy video',
+    title: 'AR Sample Video Cover Music',
     desc: 'Hologram demo dengan video contoh',
     videoFile: 'greeting.mp4',
     icon: '🎬',
-  },
-  {
-    id: 'ello',
-    title: 'AR ello video',
-    desc: 'Hologram video Ello dari Instagram',
-    videoFile: 'greeting 2.mp4',
-    icon: '🎤',
   },
 ];
 
