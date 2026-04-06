@@ -113,6 +113,7 @@ export default function ARScene({ videoSrc, onBack }) {
         if (done) return;
         done = true;
         const vTex = new THREE.VideoTexture(videoEl);
+        vTex.encoding = THREE.sRGBEncoding;
         vTex.minFilter = THREE.LinearFilter;
         vTex.magFilter = THREE.LinearFilter;
         vTex.center.set(0.5, 0.5);
