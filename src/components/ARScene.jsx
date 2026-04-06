@@ -297,20 +297,20 @@ export default function ARScene({ videoSrc, onBack }) {
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }} />
 
-      {/* Status overlay */}
-      <div style={{
-        position: 'absolute', top: 12, left: 12, zIndex: 300,
-        background: 'rgba(0,0,0,0.55)',
-        color: status.startsWith('ERROR') ? '#ff4d4d' : '#00e5ff',
-        fontSize: 12, fontFamily: 'monospace',
-        padding: '4px 10px', borderRadius: 6,
-        pointerEvents: 'none',
-        maxWidth: 'calc(100% - 24px)', wordBreak: 'break-word',
-      }}>
-        {status}
-      </div>
+      {/* Status — hanya tampil jika ERROR */}
+      {status.startsWith('ERROR') && (
+        <div style={{
+          position: 'absolute', top: 12, left: 12, zIndex: 300,
+          background: 'rgba(0,0,0,0.7)',
+          color: '#ff4d4d', fontSize: 12, fontFamily: 'monospace',
+          padding: '4px 10px', borderRadius: 6, pointerEvents: 'none',
+          maxWidth: 'calc(100% - 24px)', wordBreak: 'break-word',
+        }}>
+          {status}
+        </div>
+      )}
 
-      {/* Scanning overlay — muncul saat kamera siap & hologram belum spawn */}
+      {/* Scanning overlay */}
       {ready && !spawned && (
         <div style={{
           position: 'absolute', inset: 0, zIndex: 50,
@@ -318,27 +318,28 @@ export default function ARScene({ videoSrc, onBack }) {
           alignItems: 'center', justifyContent: 'center',
           pointerEvents: 'none',
         }}>
-          {/* Corner brackets */}
+          {/* Corner brackets — gold */}
           {[
-            { top: 0,    left: 0,    borderTop: '3px solid #fff', borderLeft:  '3px solid #fff' },
-            { top: 0,    right: 0,   borderTop: '3px solid #fff', borderRight: '3px solid #fff' },
-            { bottom: 0, left: 0,    borderBottom: '3px solid #fff', borderLeft:  '3px solid #fff' },
-            { bottom: 0, right: 0,   borderBottom: '3px solid #fff', borderRight: '3px solid #fff' },
+            { top: 0,    left: 0,    borderTop: '2px solid #c9a84c', borderLeft:  '2px solid #c9a84c' },
+            { top: 0,    right: 0,   borderTop: '2px solid #c9a84c', borderRight: '2px solid #c9a84c' },
+            { bottom: 0, left: 0,    borderBottom: '2px solid #c9a84c', borderLeft:  '2px solid #c9a84c' },
+            { bottom: 0, right: 0,   borderBottom: '2px solid #c9a84c', borderRight: '2px solid #c9a84c' },
           ].map((s, i) => (
-            <div key={i} style={{ position: 'absolute', width: 28, height: 28, ...s }} />
+            <div key={i} style={{ position: 'absolute', width: 32, height: 32, ...s }} />
           ))}
-          {/* Scan line */}
+          {/* Scan line — gold */}
           <div style={{
-            position: 'absolute', left: 0, right: 0, height: 2,
-            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.7), transparent)',
+            position: 'absolute', left: 0, right: 0, height: 1,
+            background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.8), transparent)',
             animation: 'scanline 2s linear infinite',
           }} />
           {/* Label */}
           <div style={{
             position: 'absolute', bottom: '18%',
-            color: 'rgba(255,255,255,0.85)', fontSize: 14,
+            color: '#c9a84c', fontSize: 13,
             fontFamily: 'system-ui, sans-serif',
-            textShadow: '0 1px 6px rgba(0,0,0,0.9)',
+            letterSpacing: '0.1em', textTransform: 'uppercase',
+            textShadow: '0 1px 8px rgba(0,0,0,0.9)',
             animation: 'blink 2s ease-in-out infinite',
           }}>
             Arahkan ke cover album
@@ -346,11 +347,11 @@ export default function ARScene({ videoSrc, onBack }) {
         </div>
       )}
 
-      {/* Mute button — selalu tampil */}
+      {/* Mute button */}
       <button onClick={handleToggleMute} style={{
         position: 'absolute', bottom: 28, right: 20, zIndex: 300,
-        background: 'rgba(0,229,255,0.12)', border: '1px solid rgba(0,229,255,0.65)',
-        color: '#00e5ff', borderRadius: 10, padding: '8px 18px', fontSize: 13,
+        background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.5)',
+        color: '#f5d77e', borderRadius: 10, padding: '8px 18px', fontSize: 13,
         fontFamily: 'system-ui, sans-serif', cursor: 'pointer',
         backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
         letterSpacing: '0.04em', userSelect: 'none', WebkitUserSelect: 'none',
@@ -358,12 +359,12 @@ export default function ARScene({ videoSrc, onBack }) {
         {muted ? '🔇 Unmute' : '🔊 Sound On'}
       </button>
 
-      {/* Back to dashboard */}
+      {/* Back button */}
       {onBack && (
         <button onClick={handleBack} style={{
-          position: 'absolute', top: 12, right: 12, zIndex: 300,
-          background: 'rgba(0,0,0,0.45)', border: '1px solid rgba(255,255,255,0.3)',
-          color: '#fff', borderRadius: 10, padding: '6px 16px', fontSize: 13,
+          position: 'absolute', top: 16, left: 16, zIndex: 300,
+          background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.45)',
+          color: '#f5d77e', borderRadius: 10, padding: '6px 16px', fontSize: 13,
           fontFamily: 'system-ui, sans-serif', cursor: 'pointer',
           backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
           userSelect: 'none', WebkitUserSelect: 'none',
@@ -372,13 +373,13 @@ export default function ARScene({ videoSrc, onBack }) {
         </button>
       )}
 
-      {/* Close / Despawn button — hanya muncul saat hologram aktif */}
+      {/* Close button */}
       {spawned && (
         <button onClick={handleClose} style={{
           position: 'absolute', bottom: 28, left: 20, zIndex: 300,
-          background: 'rgba(255,50,50,0.15)',
-          border: '1px solid rgba(255,80,80,0.7)',
-          color: '#ff6060', borderRadius: 10,
+          background: 'rgba(201,168,76,0.08)',
+          border: '1px solid rgba(201,168,76,0.4)',
+          color: '#c9a84c', borderRadius: 10,
           padding: '8px 20px', fontSize: 13,
           fontFamily: 'system-ui, sans-serif', cursor: 'pointer',
           backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
