@@ -91,12 +91,16 @@ export default function ARScene({ videoSrc, onBack }) {
     overlayScene.add(new THREE.AmbientLight(0xffffff, 0.15));
     [
       [ 1, 0, 0], [-1, 0, 0],  // kiri & kanan
-      [ 0, 1, 0], [ 0,-1, 0],  // atas & bawah
+      [ 0,-1, 0],               // bawah
     ].forEach(([x, y, z]) => {
       const l = new THREE.DirectionalLight(0xffffff, 0.15);
       l.position.set(x, y, z);
       overlayScene.add(l);
     });
+    // Top light lebih kuat
+    const topLight = new THREE.DirectionalLight(0xffffff, 0.4);
+    topLight.position.set(0, 1, 0);
+    overlayScene.add(topLight);
 
     /* ── Hologram group (wrapper untuk gyro + float) ── */
     const hologramGroup = new THREE.Group();
