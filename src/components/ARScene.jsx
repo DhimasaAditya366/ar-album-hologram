@@ -69,8 +69,10 @@ export default function ARScene({ videoSrc, onBack }) {
     overlayRenderer.setSize(W, H);
     overlayRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     overlayRenderer.setClearColor(0x000000, 0);
-    overlayRenderer.outputEncoding = THREE.sRGBEncoding;
+    overlayRenderer.outputEncoding    = THREE.sRGBEncoding;
     overlayRenderer.physicallyCorrectLights = true;
+    overlayRenderer.toneMapping         = THREE.ACESFilmicToneMapping;
+    overlayRenderer.toneMappingExposure = 0.9;
 
     /* ── Environment map (diperlukan agar material PBR/metalik GLB tidak hitam) ── */
     const pmremGenerator = new THREE.PMREMGenerator(overlayRenderer);
@@ -83,24 +85,24 @@ export default function ARScene({ videoSrc, onBack }) {
 
     const overlayScene  = new THREE.Scene();
     overlayScene.environment = envTexture;
-    overlayScene.environmentIntensity = 0.2;
+    overlayScene.environmentIntensity = 0.45;
     const overlayCamera = new THREE.PerspectiveCamera(60, W / H, 0.01, 100);
     overlayCamera.position.set(0, 0, 2.5);
 
-    /* ── Lighting: ambient + 4 arah cardinal ── */
-    overlayScene.add(new THREE.AmbientLight(0xffffff, 0.15));
-    [
-      [ 1, 0, 0], [-1, 0, 0],  // kiri & kanan
-      [ 0,-1, 0],               // bawah
-    ].forEach(([x, y, z]) => {
-      const l = new THREE.DirectionalLight(0xffffff, 0.15);
-      l.position.set(x, y, z);
-      overlayScene.add(l);
-    });
-    // Top light lebih kuat
-    const topLight = new THREE.DirectionalLight(0xffffff, 0.7);
-    topLight.position.set(0, 1, 0);
-    overlayScene.add(topLight);
+    /* ── Studio lighting: softbox top-left + fill right + rim ── */
+    overlayScene.add(new THREE.AmbientLight(0xffffff, 0.04));
+
+    const mainLight = new THREE.DirectionalLight(0xfffaf0, 2.2);
+    mainLight.position.set(-1, 2.5, 1);
+    overlayScene.add(mainLight);
+
+    const fillLight = new THREE.DirectionalLight(0xfff5e0, 0.35);
+    fillLight.position.set(1.5, 0.5, 0.5);
+    overlayScene.add(fillLight);
+
+    const rimLight = new THREE.DirectionalLight(0xffeebb, 0.5);
+    rimLight.position.set(0, -0.5, -1.5);
+    overlayScene.add(rimLight);
 
     /* ── Hologram group (wrapper untuk gyro + float) ── */
     const hologramGroup = new THREE.Group();
@@ -154,7 +156,8 @@ export default function ARScene({ videoSrc, onBack }) {
                 if (c.r < 0.05 && c.g < 0.05 && c.b < 0.05) mat.color.set(0xffffff);
               }
               if (mat.metalness !== undefined) mat.metalness = Math.min(mat.metalness, 0.95);
-              if (mat.envMapIntensity !== undefined) mat.envMapIntensity = 1.2;
+              if (mat.roughness !== undefined) mat.roughness = Math.max(mat.roughness * 0.5, 0.05);
+              if (mat.envMapIntensity !== undefined) mat.envMapIntensity = 1.5;
               mat.needsUpdate = true;
             });
           }
