@@ -17,12 +17,10 @@ const VERT = `
 const FRAG_FG = `
   uniform sampler2D uColor;
   uniform sampler2D uMatte;
-  uniform vec2      uOffset;
   varying vec2 vUv;
   void main() {
-    vec2 uv     = clamp(vUv + uOffset, 0.001, 0.999);
-    vec4  color = texture2D(uColor, uv);
-    float alpha = texture2D(uMatte, uv).r;
+    vec4  color = texture2D(uColor, vUv);
+    float alpha = texture2D(uMatte, vUv).r;
     gl_FragColor = vec4(color.rgb, alpha);
   }
 `;
@@ -108,13 +106,17 @@ export default function ParallaxScene({ onBack }) {
     const visH   = 2 * Math.tan(THREE.MathUtils.degToRad(30)) * 2.5;
     const visW   = visH * aspect;
     /*
-     * 3D parallax wallpaper style:
-     *   FG (orang) = DIAM, tidak bergerak → terasa "melayang di depan"
-     *   BG         = bergerak mengikuti gyro → terasa "jauh di belakang"
-     *   tilt 10°   → BG geser 8% layar → depth jelas terlihat
+     * True 3D parallax — camera bergerak, semua object DIAM di world space.
+     * Perspektif proyeksi otomatis membuat object dekat (FG, Z=1.8) apparent-shift
+     * lebih besar dari object jauh (BG, Z=0). Ini persis cara kerja parallax wallpaper HP.
+     *
+     * Camera movement per degree: 0.006
+     * Tilt 10° → camera geser 0.06 unit
+     *   BG  (Z=0,   dist dari cam=2.5) → apparent shift ~2.4% layar
+     *   FG  (Z=1.8, dist dari cam=0.7) → apparent shift ~8.6% layar
+     *   Diff: 6.2% layar → terlihat jelas
      */
-    const BG_UV  = 0.0080;
-    const FG_UV  = 0.0000; // FG tidak bergerak
+    const CAM_SPEED = 0.006;
 
     /* ── Textures (sama persis dengan ARScene) ── */
     const makeTex = (vid, srgb = true) => {
@@ -136,16 +138,15 @@ export default function ParallaxScene({ onBack }) {
       new THREE.PlaneGeometry(visW, visH),
       new THREE.MeshBasicMaterial({ map: bgTex })
     );
-    bgMesh.position.z = 0;
+    bgMesh.position.z = -1.0; // jauh dari kamera
     bgMesh.visible    = false;
     scene.add(bgMesh);
 
     /* ── Foreground plane — ukuran sama, parallax via uOffset uniform ── */
     const fgMat = new THREE.ShaderMaterial({
       uniforms: {
-        uColor:  { value: fgColorTex },
-        uMatte:  { value: fgMatteTex },
-        uOffset: { value: new THREE.Vector2(0, 0) },
+        uColor: { value: fgColorTex },
+        uMatte: { value: fgMatteTex },
       },
       vertexShader:   VERT,
       fragmentShader: FRAG_FG,
@@ -158,7 +159,7 @@ export default function ParallaxScene({ onBack }) {
       new THREE.PlaneGeometry(visW, visH),
       fgMat
     );
-    fgMesh.position.z = 0.1;
+    fgMesh.position.z = 1.5; // dekat kamera → apparent shift lebih besar
     fgMesh.visible    = false;
     scene.add(fgMesh);
 
@@ -190,16 +191,13 @@ export default function ParallaxScene({ onBack }) {
     const animate = () => {
       raf = requestAnimationFrame(animate);
 
-      // Lerp lebih lambat → lebih stabil, tidak liar
-      curX += (gyroX - curX) * 0.05;
-      curY += (gyroY - curY) * 0.05;
+      curX += (gyroX - curX) * 0.06;
+      curY += (gyroY - curY) * 0.06;
 
-      // BG: pakai texture.offset (MeshBasicMaterial auto-apply matrix)
-      bgTex.offset.x = -curY * BG_UV;
-      bgTex.offset.y =  curX * BG_UV;
-
-      // FG: pakai shader uniform (ShaderMaterial tidak auto-apply texture matrix)
-      fgMat.uniforms.uOffset.value.set(-curY * FG_UV, curX * FG_UV);
+      // Camera bergerak — semua object diam, perspektif yang buat depth
+      camera.position.x =  curY * CAM_SPEED;
+      camera.position.y = -curX * CAM_SPEED;
+      camera.lookAt(0, 0, 0);
 
       renderer.render(scene, camera);
     };
