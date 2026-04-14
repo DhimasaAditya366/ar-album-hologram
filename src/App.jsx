@@ -1,20 +1,24 @@
 import { useState } from 'react';
 import Dashboard from './components/Dashboard';
 import ARScene from './components/ARScene';
+import ParallaxScene from './components/ParallaxScene';
 
 export default function App() {
-  const [videoFile, setVideoFile] = useState(null);
+  const [selection, setSelection] = useState(null);
 
-  if (!videoFile) {
-    return <Dashboard onSelect={setVideoFile} />;
+  if (!selection) {
+    return <Dashboard onSelect={setSelection} />;
   }
 
-  const videoSrc = import.meta.env.BASE_URL + 'assets/' + encodeURIComponent(videoFile);
+  if (selection.mode === 'parallax') {
+    return <ParallaxScene onBack={() => setSelection(null)} />;
+  }
 
+  const videoSrc = import.meta.env.BASE_URL + 'assets/' + encodeURIComponent(selection.videoFile);
   return (
     <ARScene
       videoSrc={videoSrc}
-      onBack={() => setVideoFile(null)}
+      onBack={() => setSelection(null)}
     />
   );
 }

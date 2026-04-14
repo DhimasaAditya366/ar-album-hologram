@@ -3,14 +3,15 @@ const AR_ITEMS = [
     id: 'dummy',
     title: 'AR Sample Video Cover Music',
     desc: 'Hologram demo dengan video contoh',
+    mode: 'ar',
     videoFile: 'greeting.mp4',
     icon: '🎬',
   },
   {
-    id: 'fullscreen',
+    id: 'parallax',
     title: 'AR Fullscreen Video Cover Music',
-    desc: 'Hologram fullscreen dengan video contoh',
-    videoFile: 'greeting.mp4',
+    desc: 'Parallax video interaktif dengan gyro',
+    mode: 'parallax',
     icon: '▶',
   },
 ];
@@ -57,7 +58,7 @@ export default function Dashboard({ onSelect }) {
         {AR_ITEMS.map(item => (
           <button
             key={item.id}
-            onClick={() => onSelect(item.videoFile)}
+            onClick={() => onSelect({ mode: item.mode, videoFile: item.videoFile })}
             style={{
               width: '100%', textAlign: 'left',
               background: 'rgba(197,168,76,0.05)',
