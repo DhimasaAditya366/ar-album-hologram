@@ -15,7 +15,7 @@ const FRAG_FG = `
   uniform sampler2D uMatte;
   varying vec2 vUv;
   void main() {
-    vec4 color = texture2D(uColor, vUv);
+    vec4 color  = texture2D(uColor, vUv);
     float alpha = texture2D(uMatte, vUv).r;
     gl_FragColor = vec4(color.rgb, alpha);
   }
@@ -27,8 +27,8 @@ export default function ParallaxScene({ onBack }) {
   const [spawned, setSpawned] = useState(false);
   const [ready,   setReady]   = useState(false);
   const [status,  setStatus]  = useState('Initializing...');
-  const videosRef  = useRef([]);
-  const planesRef  = useRef({ bg: null, fg: null });
+  const videosRef = useRef([]);
+  const planesRef = useRef({ bg: null, fg: null });
 
   const handleBack = () => {
     sessionStorage.removeItem('sw-reloaded');
@@ -47,27 +47,27 @@ export default function ParallaxScene({ onBack }) {
   const handleToggleMute = () => {
     const vids = videosRef.current;
     if (!vids.length) return;
-    const newMuted = !vids[0].muted;
-    vids.forEach(v => { v.muted = newMuted; if (!newMuted) v.play().catch(() => {}); });
-    setMuted(newMuted);
+    const m = !vids[0].muted;
+    vids.forEach(v => { v.muted = m; if (!m) v.play().catch(() => {}); });
+    setMuted(m);
   };
 
   useEffect(() => {
     const container = containerRef.current;
-    const W = container.clientWidth;
-    const H = container.clientHeight;
+    const W      = container.clientWidth;
+    const H      = container.clientHeight;
     const aspect = W / H;
-    const BASE = import.meta.env.BASE_URL;
+    const BASE   = import.meta.env.BASE_URL;
 
     /* ── Video elements ── */
-    const makeVideo = (src) => {
+    const makeVideo = (file) => {
       const v = document.createElement('video');
-      v.loop = true;
-      v.muted = false;
+      v.loop        = true;
+      v.muted       = false;
       v.playsInline = true;
       v.setAttribute('webkit-playsinline', '');
       v.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1;';
-      v.src = BASE + 'assets/' + src + '?v=' + Date.now();
+      v.src = BASE + 'assets/' + file + '?v=' + Date.now();
       v.load();
       container.appendChild(v);
       return v;
@@ -78,11 +78,11 @@ export default function ParallaxScene({ onBack }) {
     const fgMatteVid = makeVideo('fg_matte.mp4');
     videosRef.current = [bgVid, fgColorVid, fgMatteVid];
 
-    /* ── Overlay renderer ── */
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    /* ── Renderer — alpha false supaya bg.mp4 cover penuh ── */
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.setSize(W, H);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0x000000, 0);
+    renderer.setClearColor(0x000000, 1);
     renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.domElement.style.cssText =
       'position:absolute;top:0;left:0;width:100%;height:100%;z-index:10;pointer-events:none;';
@@ -92,17 +92,34 @@ export default function ParallaxScene({ onBack }) {
     const camera = new THREE.PerspectiveCamera(60, aspect, 0.01, 100);
     camera.position.set(0, 0, 2.5);
 
-    /* ── Plane size — fill screen + overflow untuk parallax ── */
-    const visH = 2 * Math.tan(THREE.MathUtils.degToRad(30)) * 2.5;
-    const pH   = visH * 1.15;
-    const pW   = pH * aspect * 1.15;
+    /*
+     * Plane size:
+     *   visible area = visH x visW
+     *   plane = 2.2x visible → overflow = 0.6 * vis di tiap sisi
+     *   max fg movement di 30° tilt = 30 * 0.025 = 0.75 unit
+     *   overflow (portrait) ≈ 0.6 * 1.62 = 0.97 unit > 0.75 ✓  → tidak ada black edge
+     */
+    const visH  = 2 * Math.tan(THREE.MathUtils.degToRad(30)) * 2.5; // ~2.887
+    const visW  = visH * aspect;
+    const SCALE = 2.2;
+    const pH    = visH * SCALE;
+    const pW    = visW * SCALE;
+
+    /* ── Textures ── */
+    const makeTex = (vid, srgb = true) => {
+      const t = new THREE.VideoTexture(vid);
+      if (srgb) t.encoding = THREE.sRGBEncoding;
+      t.minFilter = THREE.LinearFilter;
+      t.magFilter = THREE.LinearFilter;
+      t.generateMipmaps = false;
+      return t;
+    };
+
+    const bgTex      = makeTex(bgVid);
+    const fgColorTex = makeTex(fgColorVid);
+    const fgMatteTex = makeTex(fgMatteVid, false); // matte = grayscale, tidak perlu sRGB
 
     /* ── Background plane ── */
-    const bgTex = new THREE.VideoTexture(bgVid);
-    bgTex.encoding  = THREE.sRGBEncoding;
-    bgTex.minFilter = THREE.LinearFilter;
-    bgTex.magFilter = THREE.LinearFilter;
-
     const bgMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(pW, pH),
       new THREE.MeshBasicMaterial({ map: bgTex })
@@ -111,17 +128,7 @@ export default function ParallaxScene({ onBack }) {
     bgMesh.visible    = false;
     scene.add(bgMesh);
 
-    /* ── Foreground plane (person + matte shader) ── */
-    const fgColorTex = new THREE.VideoTexture(fgColorVid);
-    fgColorTex.encoding  = THREE.sRGBEncoding;
-    fgColorTex.minFilter = THREE.LinearFilter;
-    fgColorTex.magFilter = THREE.LinearFilter;
-
-    const fgMatteTex = new THREE.VideoTexture(fgMatteVid);
-    fgMatteTex.encoding  = THREE.sRGBEncoding;
-    fgMatteTex.minFilter = THREE.LinearFilter;
-    fgMatteTex.magFilter = THREE.LinearFilter;
-
+    /* ── Foreground plane ── */
     const fgMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(pW, pH),
       new THREE.ShaderMaterial({
@@ -136,20 +143,22 @@ export default function ParallaxScene({ onBack }) {
         side:           THREE.DoubleSide,
       })
     );
-    fgMesh.position.z = 0.4;
+    fgMesh.position.z = 0.3;
     fgMesh.visible    = false;
     scene.add(fgMesh);
 
     planesRef.current = { bg: bgMesh, fg: fgMesh };
 
-    /* ── Gyroscope ── */
+    /* ── Gyroscope — nilai dalam derajat, cap ±45° ── */
     let gyroX = 0, gyroY = 0, curX = 0, curY = 0;
 
     const onOrientation = (e) => {
-      // Simpan dalam derajat langsung — lebih mudah kontrol multiplier parallax
-      gyroX = (e.beta  ?? 0) - 90;   // 0° saat HP tegak portrait
-      gyroY = (e.gamma ?? 0);        // 0° saat HP tidak miring kiri/kanan
+      const bx = Math.max(-45, Math.min(45, (e.beta  ?? 0) - 90));
+      const by = Math.max(-45, Math.min(45,  e.gamma ?? 0));
+      gyroX = bx;
+      gyroY = by;
     };
+
     const startGyro = () => {
       if (typeof DeviceOrientationEvent !== 'undefined' &&
           typeof DeviceOrientationEvent.requestPermission === 'function') {
@@ -164,23 +173,27 @@ export default function ParallaxScene({ onBack }) {
     const onTap = () => { startGyro(); container.removeEventListener('click', onTap); };
     container.addEventListener('click', onTap);
 
+    /*
+     * Parallax multipliers (dalam derajat):
+     *   BG  — slow:  30° → 0.24 unit
+     *   FG  — fast:  30° → 0.75 unit
+     *   diff:        30° → 0.51 unit ≈ 31% lebar layar (portrait) → jelas terlihat
+     */
+    const BG_SPEED = 0.008;
+    const FG_SPEED = 0.025;
+
     /* ── Render loop ── */
     let raf;
     const animate = () => {
       raf = requestAnimationFrame(animate);
-      curX += (gyroX - curX) * 0.12;
-      curY += (gyroY - curY) * 0.12;
 
-      // Force update semua VideoTexture tiap frame
-      bgTex.needsUpdate      = true;
-      fgColorTex.needsUpdate = true;
-      fgMatteTex.needsUpdate = true;
+      curX += (gyroX - curX) * 0.1;
+      curY += (gyroY - curY) * 0.1;
 
-      // Dalam derajat: tilt 30° → bg geser 0.21 unit, fg geser 0.66 unit → beda 0.45 unit (terlihat jelas)
-      bgMesh.position.x =  curY * 0.007;
-      bgMesh.position.y = -curX * 0.007;
-      fgMesh.position.x =  curY * 0.022;
-      fgMesh.position.y = -curX * 0.022;
+      bgMesh.position.x =  curY * BG_SPEED;
+      bgMesh.position.y = -curX * BG_SPEED;
+      fgMesh.position.x =  curY * FG_SPEED;
+      fgMesh.position.y = -curX * FG_SPEED;
 
       renderer.render(scene, camera);
     };
@@ -207,7 +220,6 @@ export default function ParallaxScene({ onBack }) {
         setStatus('Target found!');
         videosRef.current.forEach(v => { v.currentTime = 0; v.play().catch(() => {}); });
       };
-
       anchor.onTargetLost = () => {};
 
       setStatus('Starting camera...');
@@ -217,6 +229,7 @@ export default function ParallaxScene({ onBack }) {
       setStatus('Scanning... (arahkan ke cover album)');
       setReady(true);
 
+      /* z-index: camera feed=0, mindar canvas=1, overlay renderer=10 */
       const arVideo  = container.querySelector('video[autoplay]');
       const arCanvas = container.querySelector('canvas[data-engine]') ?? container.querySelector('canvas');
       if (arVideo)  arVideo.style.zIndex  = '0';
@@ -245,7 +258,6 @@ export default function ParallaxScene({ onBack }) {
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }} />
 
-      {/* Error status */}
       {status.startsWith('ERROR') && (
         <div style={{
           position: 'absolute', top: 12, left: 12, zIndex: 300,
@@ -255,12 +267,10 @@ export default function ParallaxScene({ onBack }) {
         }}>{status}</div>
       )}
 
-      {/* Scanning overlay */}
       {ready && !spawned && (
         <div style={{
           position: 'absolute', inset: 0, zIndex: 50,
-          display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
           pointerEvents: 'none',
         }}>
           {[
@@ -277,11 +287,9 @@ export default function ParallaxScene({ onBack }) {
             animation: 'scanline 2s linear infinite',
           }} />
           <div style={{
-            position: 'absolute', bottom: '18%',
-            color: '#c9a84c', fontSize: 13,
-            fontFamily: 'system-ui, sans-serif',
-            letterSpacing: '0.1em', textTransform: 'uppercase',
-            textShadow: '0 1px 8px rgba(0,0,0,0.9)',
+            position: 'absolute', bottom: '18%', color: '#c9a84c', fontSize: 13,
+            fontFamily: 'system-ui, sans-serif', letterSpacing: '0.1em',
+            textTransform: 'uppercase', textShadow: '0 1px 8px rgba(0,0,0,0.9)',
             animation: 'blink 2s ease-in-out infinite',
           }}>
             Arahkan ke cover album
@@ -289,7 +297,6 @@ export default function ParallaxScene({ onBack }) {
         </div>
       )}
 
-      {/* Mute button */}
       <button onClick={handleToggleMute} style={{
         position: 'absolute', bottom: 28, right: 20, zIndex: 300,
         background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.5)',
@@ -301,7 +308,6 @@ export default function ParallaxScene({ onBack }) {
         {muted ? '🔇 Unmute' : '🔊 Sound On'}
       </button>
 
-      {/* Back button */}
       {onBack && (
         <button onClick={handleBack} style={{
           position: 'absolute', top: 16, left: 16, zIndex: 300,
@@ -315,7 +321,6 @@ export default function ParallaxScene({ onBack }) {
         </button>
       )}
 
-      {/* Close button */}
       {spawned && (
         <button onClick={handleClose} style={{
           position: 'absolute', bottom: 28, left: 20, zIndex: 300,
