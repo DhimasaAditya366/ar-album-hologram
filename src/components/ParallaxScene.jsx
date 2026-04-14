@@ -197,10 +197,17 @@ export default function ParallaxScene({ onBack }) {
 
     /* ── Render loop ── */
     let raf;
+    let syncFrame = 0;
     const animate = () => {
       raf = requestAnimationFrame(animate);
 
-      // Lerp lebih lambat → lebih stabil, tidak liar
+      // Sync fg_matte ke fg_color setiap 6 frame — cegah shadow drift
+      syncFrame++;
+      if (syncFrame % 6 === 0) {
+        const diff = Math.abs(fgColorVid.currentTime - fgMatteVid.currentTime);
+        if (diff > 0.04) fgMatteVid.currentTime = fgColorVid.currentTime;
+      }
+
       curX += (gyroX - curX) * 0.05;
       curY += (gyroY - curY) * 0.05;
 
@@ -233,7 +240,15 @@ export default function ParallaxScene({ onBack }) {
         fgMesh.visible = true;
         setSpawned(true);
         setStatus('Target found!');
-        videosRef.current.forEach(v => { v.currentTime = 0; v.play().catch(() => {}); });
+        // Reset semua ke 0 dulu, lalu play fg_color → setelah ready, snap matte ke currentTime yang sama
+        bgVid.currentTime = 0;
+        fgColorVid.currentTime = 0;
+        fgMatteVid.currentTime = 0;
+        bgVid.play().catch(() => {});
+        fgColorVid.play().then(() => {
+          fgMatteVid.currentTime = fgColorVid.currentTime;
+          fgMatteVid.play().catch(() => {});
+        }).catch(() => { fgMatteVid.play().catch(() => {}); });
       };
       anchor.onTargetLost = () => {};
 
