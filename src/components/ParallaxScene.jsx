@@ -107,8 +107,14 @@ export default function ParallaxScene({ onBack }) {
      */
     const visH   = 2 * Math.tan(THREE.MathUtils.degToRad(30)) * 2.5;
     const visW   = visH * aspect;
-    const BG_UV  = 0.0010;
-    const FG_UV  = 0.0030;
+    /*
+     * UV offset per degree:
+     *   tilt 10° (santai) → BG geser 3%, FG geser 10%, diff 7% → terlihat jelas
+     *   tilt 20° (kuat)   → BG geser 6%, FG geser 20%, diff 14% → sangat terlihat
+     * Naikkan FG_UV untuk lebih dramatis, turunkan untuk lebih halus
+     */
+    const BG_UV  = 0.0030;
+    const FG_UV  = 0.0100;
 
     /* ── Textures (sama persis dengan ARScene) ── */
     const makeTex = (vid, srgb = true) => {
