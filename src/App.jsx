@@ -3,19 +3,18 @@ import Dashboard from './components/Dashboard';
 import ARScene from './components/ARScene';
 
 export default function App() {
-  const [selection, setSelection] = useState(null);
+  const [videoFile, setVideoFile] = useState(null);
 
-  if (!selection) {
-    return <Dashboard onSelect={setSelection} />;
+  if (!videoFile) {
+    return <Dashboard onSelect={setVideoFile} />;
   }
 
-  const videoSrc = import.meta.env.BASE_URL + 'assets/' + encodeURIComponent(selection.videoFile);
+  const videoSrc = import.meta.env.BASE_URL + 'assets/' + encodeURIComponent(videoFile);
 
   return (
     <ARScene
       videoSrc={videoSrc}
-      fullscreen={selection.fullscreen}
-      onBack={() => setSelection(null)}
+      onBack={() => setVideoFile(null)}
     />
   );
 }
