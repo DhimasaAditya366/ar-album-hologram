@@ -259,7 +259,7 @@ export default function ARScene({ videoSrc, onBack }) {
         hologramGroup.rotation.y = curY;
 
         hologramGroup.position.y = 0;
-        hologramGroup.position.z = 0.3;
+        hologramGroup.position.z = 0.6;
 
         overlayRenderer.render(overlayScene, overlayCamera);
       };
