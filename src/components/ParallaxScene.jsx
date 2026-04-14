@@ -118,6 +118,7 @@ export default function ParallaxScene({ onBack }) {
     fgColorTex.magFilter = THREE.LinearFilter;
 
     const fgMatteTex = new THREE.VideoTexture(fgMatteVid);
+    fgMatteTex.encoding  = THREE.sRGBEncoding;
     fgMatteTex.minFilter = THREE.LinearFilter;
     fgMatteTex.magFilter = THREE.LinearFilter;
 
@@ -145,8 +146,9 @@ export default function ParallaxScene({ onBack }) {
     let gyroX = 0, gyroY = 0, curX = 0, curY = 0;
 
     const onOrientation = (e) => {
-      gyroX = THREE.MathUtils.degToRad(((e.beta  ?? 0) - 90) * 0.15);
-      gyroY = THREE.MathUtils.degToRad( (e.gamma ?? 0)       * 0.15);
+      // Simpan dalam derajat langsung — lebih mudah kontrol multiplier parallax
+      gyroX = (e.beta  ?? 0) - 90;   // 0° saat HP tegak portrait
+      gyroY = (e.gamma ?? 0);        // 0° saat HP tidak miring kiri/kanan
     };
     const startGyro = () => {
       if (typeof DeviceOrientationEvent !== 'undefined' &&
@@ -169,10 +171,16 @@ export default function ParallaxScene({ onBack }) {
       curX += (gyroX - curX) * 0.12;
       curY += (gyroY - curY) * 0.12;
 
-      bgMesh.position.x =  curY * 0.04;
-      bgMesh.position.y = -curX * 0.04;
-      fgMesh.position.x =  curY * 0.12;
-      fgMesh.position.y = -curX * 0.12;
+      // Force update semua VideoTexture tiap frame
+      bgTex.needsUpdate      = true;
+      fgColorTex.needsUpdate = true;
+      fgMatteTex.needsUpdate = true;
+
+      // Dalam derajat: tilt 30° → bg geser 0.21 unit, fg geser 0.66 unit → beda 0.45 unit (terlihat jelas)
+      bgMesh.position.x =  curY * 0.007;
+      bgMesh.position.y = -curX * 0.007;
+      fgMesh.position.x =  curY * 0.022;
+      fgMesh.position.y = -curX * 0.022;
 
       renderer.render(scene, camera);
     };
