@@ -6,6 +6,13 @@ const AR_ITEMS = [
     videoFile: 'greeting.mp4',
     icon: '🎬',
   },
+  {
+    id: 'fullscreen',
+    title: 'AR Fullscreen Video Cover Music',
+    desc: 'Hologram fullscreen dengan video contoh',
+    videoFile: 'greeting.mp4',
+    icon: '▶',
+  },
 ];
 
 export default function Dashboard({ onSelect }) {
