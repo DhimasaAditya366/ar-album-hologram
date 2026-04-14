@@ -116,14 +116,16 @@ export default function ParallaxScene({ onBack }) {
     const BG_UV  = 0.0080;
     const FG_UV  = 0.0000; // FG tidak bergerak
 
-    /* ── Textures (sama persis dengan ARScene) ── */
+    /* ── Textures — identik dengan ARScene ── */
     const makeTex = (vid, srgb = true) => {
       const t = new THREE.VideoTexture(vid);
       if (srgb) t.encoding = THREE.sRGBEncoding;
       t.minFilter       = THREE.LinearFilter;
       t.magFilter       = THREE.LinearFilter;
       t.generateMipmaps = false;
-      t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+      t.center.set(0.5, 0.5);
+      // RepeatWrapping: saat offset keluar batas → tile, tidak stretch garis
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
       return t;
     };
 
@@ -131,9 +133,17 @@ export default function ParallaxScene({ onBack }) {
     const fgColorTex = makeTex(fgColorVid);
     const fgMatteTex = makeTex(fgMatteVid, false); // matte = grayscale, no sRGB
 
-    /* ── Background plane — ukuran tepat layar ── */
+    /*
+     * BG plane 1.25x oversized → area buffer untuk parallax movement.
+     * Dengan BG_UV=0.008 dan cap ±15°: max offset = 15*0.008 = 0.12
+     * Plane 1.25x → texture di-tile lebih kecil (scale 0.8) → buffer 10% tiap sisi ✓
+     */
+    bgTex.repeat.set(0.82, 0.82); // sedikit zoom out agar ada buffer di tepi
+    bgTex.offset.set(0.09, 0.09); // mulai dari tengah
+
+    /* ── Background plane — sedikit lebih besar dari layar ── */
     const bgMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(visW, visH),
+      new THREE.PlaneGeometry(visW * 1.25, visH * 1.25),
       new THREE.MeshBasicMaterial({ map: bgTex })
     );
     bgMesh.position.z = 0;
@@ -168,8 +178,8 @@ export default function ParallaxScene({ onBack }) {
     let gyroX = 0, gyroY = 0, curX = 0, curY = 0;
 
     const onOrientation = (e) => {
-      gyroX = Math.max(-20, Math.min(20, (e.beta  ?? 0) - 90));
-      gyroY = Math.max(-20, Math.min(20,  e.gamma ?? 0));
+      gyroX = Math.max(-15, Math.min(15, (e.beta  ?? 0) - 90));
+      gyroY = Math.max(-15, Math.min(15,  e.gamma ?? 0));
     };
     const startGyro = () => {
       if (typeof DeviceOrientationEvent !== 'undefined' &&
