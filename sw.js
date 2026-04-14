@@ -1,4 +1,4 @@
-// v=20260414d
+// v=20260414e
 self.addEventListener('install', () => self.skipWaiting());
 
 self.addEventListener('activate', e => {
