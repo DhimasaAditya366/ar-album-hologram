@@ -103,22 +103,32 @@ export default function ParallaxScene({ onBack }) {
      *   FG UV offset per degree: 0.0030  → tilt 20°: 6%  geser
      *   Relatif 20°: 4% lebar layar — subtle & stabil
      */
-    const visH   = 2 * Math.tan(THREE.MathUtils.degToRad(30)) * 2.5;
-    const visW   = visH * aspect;
+
     /*
      * True 3D parallax — camera bergerak, semua object DIAM di world space.
-     * Perspektif proyeksi otomatis membuat object dekat (FG, Z=1.8) apparent-shift
-     * lebih besar dari object jauh (BG, Z=0). Ini persis cara kerja parallax wallpaper HP.
+     * Tiap plane di-size agar FILL SCREEN tepat di Z-nya masing-masing.
      *
-     * Camera movement per degree: 0.006
-     * Tilt 10° → camera geser 0.06 unit
-     *   BG  (Z=0,   dist dari cam=2.5) → apparent shift ~2.4% layar
-     *   FG  (Z=1.8, dist dari cam=0.7) → apparent shift ~8.6% layar
-     *   Diff: 6.2% layar → terlihat jelas
+     * Camera Z=2.5, FOV=60° → tanHalfFOV = tan(30°)
+     * BG Z=-0.5 → dist=3.0 → planeH = 2*tan(30°)*3.0
+     * FG Z=+1.5 → dist=1.0 → planeH = 2*tan(30°)*1.0
+     * Masing-masing fill screen tepat, camera move menciptakan depth.
      */
-    const CAM_SPEED = 0.006;
+    const CAM_SPEED  = 0.006;
+    const CAM_Z      = 2.5;
+    const BG_Z       = -0.5;
+    const FG_Z       =  1.5;
+    const tanHalf    = Math.tan(THREE.MathUtils.degToRad(30));
 
-    /* ── Textures (sama persis dengan ARScene) ── */
+    const bgDist = CAM_Z - BG_Z; // 3.0
+    const fgDist = CAM_Z - FG_Z; // 1.0
+
+    // Overflow 15% agar saat camera geser tidak muncul black edge
+    const bgH = 2 * tanHalf * bgDist * 1.15;
+    const bgW = bgH * aspect;
+    const fgH = 2 * tanHalf * fgDist * 1.15;
+    const fgW = fgH * aspect;
+
+    /* ── Textures ── */
     const makeTex = (vid, srgb = true) => {
       const t = new THREE.VideoTexture(vid);
       if (srgb) t.encoding = THREE.sRGBEncoding;
@@ -131,18 +141,18 @@ export default function ParallaxScene({ onBack }) {
 
     const bgTex      = makeTex(bgVid);
     const fgColorTex = makeTex(fgColorVid);
-    const fgMatteTex = makeTex(fgMatteVid, false); // matte = grayscale, no sRGB
+    const fgMatteTex = makeTex(fgMatteVid, false);
 
-    /* ── Background plane — ukuran tepat layar ── */
+    /* ── Background plane ── */
     const bgMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(visW, visH),
+      new THREE.PlaneGeometry(bgW, bgH),
       new THREE.MeshBasicMaterial({ map: bgTex })
     );
-    bgMesh.position.z = -1.0; // jauh dari kamera
+    bgMesh.position.z = BG_Z;
     bgMesh.visible    = false;
     scene.add(bgMesh);
 
-    /* ── Foreground plane — ukuran sama, parallax via uOffset uniform ── */
+    /* ── Foreground plane ── */
     const fgMat = new THREE.ShaderMaterial({
       uniforms: {
         uColor: { value: fgColorTex },
@@ -156,10 +166,10 @@ export default function ParallaxScene({ onBack }) {
     });
 
     const fgMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(visW, visH),
+      new THREE.PlaneGeometry(fgW, fgH),
       fgMat
     );
-    fgMesh.position.z = 1.5; // dekat kamera → apparent shift lebih besar
+    fgMesh.position.z = FG_Z;
     fgMesh.visible    = false;
     scene.add(fgMesh);
 
