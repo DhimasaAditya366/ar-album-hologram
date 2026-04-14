@@ -17,7 +17,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { MindARThree } from 'mind-ar/dist/mindar-image-three.prod.js';
 
-export default function ARScene({ videoSrc, onBack }) {
+export default function ARScene({ videoSrc, fullscreen = false, onBack }) {
   const containerRef = useRef(null);
   const hologramRef  = useRef(null);
   const videoRef     = useRef(null);
@@ -35,6 +35,16 @@ export default function ARScene({ videoSrc, onBack }) {
   const handleClose = () => {
     if (hologramRef.current) hologramRef.current.visible = false;
     videoRef.current?.pause();
+    setSpawned(false);
+    setStatus('Scanning... (arahkan ke cover album)');
+  };
+
+  const handleCloseFull = () => {
+    const vid = videoRef.current;
+    if (vid) {
+      vid.pause();
+      vid.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1;';
+    }
     setSpawned(false);
     setStatus('Scanning... (arahkan ke cover album)');
   };
@@ -61,148 +71,153 @@ export default function ARScene({ videoSrc, onBack }) {
     container.appendChild(videoEl);
     videoRef.current = videoEl;
 
-    /* ── Overlay Three.js renderer (terpisah dari MindAR) ── */
-    const W = container.clientWidth;
-    const H = container.clientHeight;
-
-    const overlayRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    overlayRenderer.setSize(W, H);
-    overlayRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    overlayRenderer.setClearColor(0x000000, 0);
-    overlayRenderer.outputEncoding = THREE.sRGBEncoding;
-    overlayRenderer.physicallyCorrectLights = true;
-
-    /* ── Environment map (diperlukan agar material PBR/metalik GLB tidak hitam) ── */
-    const pmremGenerator = new THREE.PMREMGenerator(overlayRenderer);
-    const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
-    pmremGenerator.dispose();
-
-    overlayRenderer.domElement.style.cssText =
-      'position:absolute;top:0;left:0;width:100%;height:100%;z-index:10;pointer-events:none';
-    container.appendChild(overlayRenderer.domElement);
-
-    const overlayScene  = new THREE.Scene();
-    overlayScene.environment = envTexture;
-    overlayScene.environmentIntensity = 0.2;
-    const overlayCamera = new THREE.PerspectiveCamera(60, W / H, 0.01, 100);
-    overlayCamera.position.set(0, 0, 2.5);
-
-    /* ── Lighting: ambient + 4 arah cardinal ── */
-    overlayScene.add(new THREE.AmbientLight(0xffffff, 0.15));
-    [
-      [ 1, 0, 0], [-1, 0, 0],  // kiri & kanan
-      [ 0,-1, 0],               // bawah
-    ].forEach(([x, y, z]) => {
-      const l = new THREE.DirectionalLight(0xffffff, 0.15);
-      l.position.set(x, y, z);
-      overlayScene.add(l);
-    });
-    // Top light lebih kuat
-    const topLight = new THREE.DirectionalLight(0xffffff, 0.7);
-    topLight.position.set(0, 1, 0);
-    overlayScene.add(topLight);
-
-    /* ── Hologram group (wrapper untuk gyro + float) ── */
-    const hologramGroup = new THREE.Group();
-    hologramGroup.visible = false;
-    overlayScene.add(hologramGroup);
-    hologramRef.current = hologramGroup;
-
-    /* ── VideoTexture — listener dipasang SEBELUM src/load ── */
-    const screenMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
-
-    const swapToVideo = (() => {
-      let done = false;
-      return () => {
-        if (done) return;
-        done = true;
-        const vTex = new THREE.VideoTexture(videoEl);
-        vTex.encoding = THREE.sRGBEncoding;
-        vTex.minFilter = THREE.LinearFilter;
-        vTex.magFilter = THREE.LinearFilter;
-        vTex.center.set(0.5, 0.5);
-        // Portrait → Math.PI, Landscape → tambah 90° lagi
-        vTex.rotation = videoEl.videoWidth > videoEl.videoHeight
-          ? Math.PI + Math.PI / 2
-          : Math.PI;
-        screenMat.map   = vTex;
-        screenMat.color.set(0xffffff);
-        screenMat.needsUpdate = true;
+    let overlayRenderer, hologramGroup;
+    if (!fullscreen) {
+      /* ── Overlay Three.js renderer (terpisah dari MindAR) ── */
+      const W = container.clientWidth;
+      const H = container.clientHeight;
+  
+      const overlayRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      overlayRenderer.setSize(W, H);
+      overlayRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      overlayRenderer.setClearColor(0x000000, 0);
+      overlayRenderer.outputEncoding = THREE.sRGBEncoding;
+      overlayRenderer.physicallyCorrectLights = true;
+  
+      /* ── Environment map (diperlukan agar material PBR/metalik GLB tidak hitam) ── */
+      const pmremGenerator = new THREE.PMREMGenerator(overlayRenderer);
+      const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+      pmremGenerator.dispose();
+  
+      overlayRenderer.domElement.style.cssText =
+        'position:absolute;top:0;left:0;width:100%;height:100%;z-index:10;pointer-events:none';
+      container.appendChild(overlayRenderer.domElement);
+  
+      const overlayScene  = new THREE.Scene();
+      overlayScene.environment = envTexture;
+      overlayScene.environmentIntensity = 0.2;
+      const overlayCamera = new THREE.PerspectiveCamera(60, W / H, 0.01, 100);
+      overlayCamera.position.set(0, 0, 2.5);
+  
+      /* ── Lighting: ambient + 4 arah cardinal ── */
+      overlayScene.add(new THREE.AmbientLight(0xffffff, 0.15));
+      [
+        [ 1, 0, 0], [-1, 0, 0],  // kiri & kanan
+        [ 0,-1, 0],               // bawah
+      ].forEach(([x, y, z]) => {
+        const l = new THREE.DirectionalLight(0xffffff, 0.15);
+        l.position.set(x, y, z);
+        overlayScene.add(l);
+      });
+      // Top light lebih kuat
+      const topLight = new THREE.DirectionalLight(0xffffff, 0.7);
+      topLight.position.set(0, 1, 0);
+      overlayScene.add(topLight);
+  
+      /* ── Hologram group (wrapper untuk gyro + float) ── */
+      const hologramGroup = new THREE.Group();
+      hologramGroup.visible = false;
+      overlayScene.add(hologramGroup);
+      hologramRef.current = hologramGroup;
+  
+      /* ── VideoTexture — listener dipasang SEBELUM src/load ── */
+      const screenMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
+  
+      const swapToVideo = (() => {
+        let done = false;
+        return () => {
+          if (done) return;
+          done = true;
+          const vTex = new THREE.VideoTexture(videoEl);
+          vTex.encoding = THREE.sRGBEncoding;
+          vTex.minFilter = THREE.LinearFilter;
+          vTex.magFilter = THREE.LinearFilter;
+          vTex.center.set(0.5, 0.5);
+          // Portrait → Math.PI, Landscape → tambah 90° lagi
+          vTex.rotation = videoEl.videoWidth > videoEl.videoHeight
+            ? Math.PI + Math.PI / 2
+            : Math.PI;
+          screenMat.map   = vTex;
+          screenMat.color.set(0xffffff);
+          screenMat.needsUpdate = true;
+        };
+      })();
+  
+      videoEl.addEventListener('loadeddata', swapToVideo);
+      videoEl.addEventListener('canplay',    swapToVideo);
+  
+      videoEl.src = (videoSrc || import.meta.env.BASE_URL + 'assets/greeting.mp4') + '?v=' + Date.now();
+      videoEl.load();
+  
+      /* ── Load GLB model ── */
+      const gltfLoader = new GLTFLoader();
+      gltfLoader.load(
+        import.meta.env.BASE_URL + 'assets/model.glb?v=' + Date.now(),
+        (gltf) => {
+          const model = gltf.scene;
+  
+          // Fix material agar tidak pure-black dan terang saat rotate
+          model.traverse((child) => {
+            if (child.isMesh && child.material) {
+              const mats = Array.isArray(child.material) ? child.material : [child.material];
+              mats.forEach(mat => {
+                if (!mat.map && mat.color) {
+                  const c = mat.color;
+                  if (c.r < 0.05 && c.g < 0.05 && c.b < 0.05) mat.color.set(0xffffff);
+                }
+                if (mat.metalness !== undefined) mat.metalness = Math.min(mat.metalness, 0.95);
+                if (mat.envMapIntensity !== undefined) mat.envMapIntensity = 1.2;
+                mat.needsUpdate = true;
+              });
+            }
+          });
+  
+          // Replace material mesh layar dengan VideoTexture
+          model.traverse((child) => {
+            if (child.isMesh && child.name === 'd1_mattscreen') {
+              child.material = screenMat;
+            }
+          });
+  
+          hologramGroup.add(model);
+        },
+        undefined,
+        (err) => { setStatus('ERROR load FBX: ' + (err?.message ?? err)); }
+      );
+  
+      /* ── Gyroscope ── */
+      let gyroX = 0, gyroY = 0;   // target rotation (rad)
+      let curX  = 0, curY  = 0;   // current smoothed rotation
+  
+      const onOrientation = (e) => {
+        const beta  = e.beta  ?? 0;   // tilt maju/mundur  (-180 ~ 180)
+        const gamma = e.gamma ?? 0;   // tilt kiri/kanan   (-90 ~ 90)
+        // Saat HP portrait tegak: beta ≈ 90 → normalize ke 0
+        gyroX = THREE.MathUtils.degToRad((beta - 90) * 0.15);
+        gyroY = THREE.MathUtils.degToRad(gamma       * 0.15);
       };
-    })();
+  
+      // iOS 13+ butuh izin dari user gesture — coba request otomatis,
+      // kalau gagal (butuh gesture) user tinggal tap layar
+      const startGyro = () => {
+        if (typeof DeviceOrientationEvent !== 'undefined' &&
+            typeof DeviceOrientationEvent.requestPermission === 'function') {
+          DeviceOrientationEvent.requestPermission()
+            .then(p => { if (p === 'granted') window.addEventListener('deviceorientation', onOrientation); })
+            .catch(() => {});
+        } else {
+          window.addEventListener('deviceorientation', onOrientation);
+        }
+      };
+      startGyro();
+      // Fallback: tap layar untuk request izin iOS
+      const onTap = () => { startGyro(); container.removeEventListener('click', onTap); };
+      container.addEventListener('click', onTap);
+  
+  
+    }
 
-    videoEl.addEventListener('loadeddata', swapToVideo);
-    videoEl.addEventListener('canplay',    swapToVideo);
-
-    videoEl.src = (videoSrc || import.meta.env.BASE_URL + 'assets/greeting.mp4') + '?v=' + Date.now();
-    videoEl.load();
-
-    /* ── Load GLB model ── */
-    const gltfLoader = new GLTFLoader();
-    gltfLoader.load(
-      import.meta.env.BASE_URL + 'assets/model.glb?v=' + Date.now(),
-      (gltf) => {
-        const model = gltf.scene;
-
-        // Fix material agar tidak pure-black dan terang saat rotate
-        model.traverse((child) => {
-          if (child.isMesh && child.material) {
-            const mats = Array.isArray(child.material) ? child.material : [child.material];
-            mats.forEach(mat => {
-              if (!mat.map && mat.color) {
-                const c = mat.color;
-                if (c.r < 0.05 && c.g < 0.05 && c.b < 0.05) mat.color.set(0xffffff);
-              }
-              if (mat.metalness !== undefined) mat.metalness = Math.min(mat.metalness, 0.95);
-              if (mat.envMapIntensity !== undefined) mat.envMapIntensity = 1.2;
-              mat.needsUpdate = true;
-            });
-          }
-        });
-
-        // Replace material mesh layar dengan VideoTexture
-        model.traverse((child) => {
-          if (child.isMesh && child.name === 'd1_mattscreen') {
-            child.material = screenMat;
-          }
-        });
-
-        hologramGroup.add(model);
-      },
-      undefined,
-      (err) => { setStatus('ERROR load FBX: ' + (err?.message ?? err)); }
-    );
-
-    /* ── Gyroscope ── */
-    let gyroX = 0, gyroY = 0;   // target rotation (rad)
-    let curX  = 0, curY  = 0;   // current smoothed rotation
-
-    const onOrientation = (e) => {
-      const beta  = e.beta  ?? 0;   // tilt maju/mundur  (-180 ~ 180)
-      const gamma = e.gamma ?? 0;   // tilt kiri/kanan   (-90 ~ 90)
-      // Saat HP portrait tegak: beta ≈ 90 → normalize ke 0
-      gyroX = THREE.MathUtils.degToRad((beta - 90) * 0.15);
-      gyroY = THREE.MathUtils.degToRad(gamma       * 0.15);
-    };
-
-    // iOS 13+ butuh izin dari user gesture — coba request otomatis,
-    // kalau gagal (butuh gesture) user tinggal tap layar
-    const startGyro = () => {
-      if (typeof DeviceOrientationEvent !== 'undefined' &&
-          typeof DeviceOrientationEvent.requestPermission === 'function') {
-        DeviceOrientationEvent.requestPermission()
-          .then(p => { if (p === 'granted') window.addEventListener('deviceorientation', onOrientation); })
-          .catch(() => {});
-      } else {
-        window.addEventListener('deviceorientation', onOrientation);
-      }
-    };
-    startGyro();
-    // Fallback: tap layar untuk request izin iOS
-    const onTap = () => { startGyro(); container.removeEventListener('click', onTap); };
-    container.addEventListener('click', onTap);
-
-    /* ── MindAR (camera feed + image detection trigger) ── */
+        /* ── MindAR (camera feed + image detection trigger) ── */
     let mindarThree = null;
     let destroyed   = false;
     mindarRef.current = null;
@@ -223,12 +238,15 @@ export default function ARScene({ videoSrc, onBack }) {
       // Anchor hanya sebagai trigger — tidak add hologram ke anchor
       const anchor = mindarThree.addAnchor(0);
       anchor.onTargetFound = () => {
-        if (hologramGroup.visible) return;
-        hologramGroup.visible = true;
         setSpawned(true);
         setStatus('Target found!');
         videoEl.currentTime = 0;
         videoEl.play().catch(console.warn);
+        if (fullscreen) {
+          videoEl.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;z-index:200;';
+        } else {
+          if (hologramGroup && !hologramGroup.visible) hologramGroup.visible = true;
+        }
       };
       anchor.onTargetLost = () => {}; // hologram tetap tampil sampai di-close
 
@@ -282,8 +300,7 @@ export default function ARScene({ videoSrc, onBack }) {
         mindarThree.renderer?.setAnimationLoop(null);
         mindarThree.stop().catch(() => {});
       }
-      overlayRenderer.dispose();
-      overlayRenderer.domElement.remove();
+      if (overlayRenderer) { overlayRenderer.dispose(); overlayRenderer.domElement.remove(); }
       window.removeEventListener('deviceorientation', onOrientation);
       container.removeEventListener('click', onTap);
       videoEl.pause();
@@ -347,6 +364,7 @@ export default function ARScene({ videoSrc, onBack }) {
         </div>
       )}
 
+
       {/* Mute button */}
       <button onClick={handleToggleMute} style={{
         position: 'absolute', bottom: 28, right: 20, zIndex: 300,
@@ -375,7 +393,7 @@ export default function ARScene({ videoSrc, onBack }) {
 
       {/* Close button */}
       {spawned && (
-        <button onClick={handleClose} style={{
+        <button onClick={fullscreen ? handleCloseFull : handleClose} style={{
           position: 'absolute', bottom: 28, left: 20, zIndex: 300,
           background: 'rgba(201,168,76,0.08)',
           border: '1px solid rgba(201,168,76,0.4)',
