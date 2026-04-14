@@ -10,13 +10,19 @@ const VERT = `
   }
 `;
 
+/*
+ * FG shader — uOffset menggeser viewport ke dalam texture
+ * (color & matte pakai UV yang sama → mask selalu sejajar)
+ */
 const FRAG_FG = `
   uniform sampler2D uColor;
   uniform sampler2D uMatte;
+  uniform vec2      uOffset;
   varying vec2 vUv;
   void main() {
-    vec4 color  = texture2D(uColor, vUv);
-    float alpha = texture2D(uMatte, vUv).r;
+    vec2 uv     = clamp(vUv + uOffset, 0.001, 0.999);
+    vec4  color = texture2D(uColor, uv);
+    float alpha = texture2D(uMatte, uv).r;
     gl_FragColor = vec4(color.rgb, alpha);
   }
 `;
@@ -78,11 +84,11 @@ export default function ParallaxScene({ onBack }) {
     const fgMatteVid = makeVideo('fg_matte.mp4');
     videosRef.current = [bgVid, fgColorVid, fgMatteVid];
 
-    /* ── Renderer — alpha false supaya bg.mp4 cover penuh ── */
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    /* ── Renderer — alpha:true agar kamera MindAR terlihat saat scanning ── */
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(W, H);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0x000000, 1);
+    renderer.setClearColor(0x000000, 0);
     renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.domElement.style.cssText =
       'position:absolute;top:0;left:0;width:100%;height:100%;z-index:10;pointer-events:none;';
@@ -93,72 +99,72 @@ export default function ParallaxScene({ onBack }) {
     camera.position.set(0, 0, 2.5);
 
     /*
-     * Plane size:
-     *   visible area = visH x visW
-     *   plane = 2.2x visible → overflow = 0.6 * vis di tiap sisi
-     *   max fg movement di 30° tilt = 30 * 0.025 = 0.75 unit
-     *   overflow (portrait) ≈ 0.6 * 1.62 = 0.97 unit > 0.75 ✓  → tidak ada black edge
+     * Plane = TEPAT ukuran layar (bukan oversized).
+     * Parallax via UV offset → tidak ada zoom/crop, tidak ada black edge.
+     *   BG UV offset per degree: 0.0010  → tilt 20°: 2%  geser
+     *   FG UV offset per degree: 0.0030  → tilt 20°: 6%  geser
+     *   Relatif 20°: 4% lebar layar — subtle & stabil
      */
-    const visH  = 2 * Math.tan(THREE.MathUtils.degToRad(30)) * 2.5; // ~2.887
-    const visW  = visH * aspect;
-    const SCALE = 2.2;
-    const pH    = visH * SCALE;
-    const pW    = visW * SCALE;
+    const visH   = 2 * Math.tan(THREE.MathUtils.degToRad(30)) * 2.5;
+    const visW   = visH * aspect;
+    const BG_UV  = 0.0010;
+    const FG_UV  = 0.0030;
 
-    /* ── Textures ── */
+    /* ── Textures (sama persis dengan ARScene) ── */
     const makeTex = (vid, srgb = true) => {
       const t = new THREE.VideoTexture(vid);
       if (srgb) t.encoding = THREE.sRGBEncoding;
-      t.minFilter = THREE.LinearFilter;
-      t.magFilter = THREE.LinearFilter;
+      t.minFilter       = THREE.LinearFilter;
+      t.magFilter       = THREE.LinearFilter;
       t.generateMipmaps = false;
+      t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
       return t;
     };
 
     const bgTex      = makeTex(bgVid);
     const fgColorTex = makeTex(fgColorVid);
-    const fgMatteTex = makeTex(fgMatteVid, false); // matte = grayscale, tidak perlu sRGB
+    const fgMatteTex = makeTex(fgMatteVid, false); // matte = grayscale, no sRGB
 
-    /* ── Background plane ── */
+    /* ── Background plane — ukuran tepat layar ── */
     const bgMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(pW, pH),
+      new THREE.PlaneGeometry(visW, visH),
       new THREE.MeshBasicMaterial({ map: bgTex })
     );
     bgMesh.position.z = 0;
     bgMesh.visible    = false;
     scene.add(bgMesh);
 
-    /* ── Foreground plane ── */
+    /* ── Foreground plane — ukuran sama, parallax via uOffset uniform ── */
+    const fgMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uColor:  { value: fgColorTex },
+        uMatte:  { value: fgMatteTex },
+        uOffset: { value: new THREE.Vector2(0, 0) },
+      },
+      vertexShader:   VERT,
+      fragmentShader: FRAG_FG,
+      transparent:    true,
+      depthWrite:     false,
+      side:           THREE.DoubleSide,
+    });
+
     const fgMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(pW, pH),
-      new THREE.ShaderMaterial({
-        uniforms: {
-          uColor: { value: fgColorTex },
-          uMatte: { value: fgMatteTex },
-        },
-        vertexShader:   VERT,
-        fragmentShader: FRAG_FG,
-        transparent:    true,
-        depthWrite:     false,
-        side:           THREE.DoubleSide,
-      })
+      new THREE.PlaneGeometry(visW, visH),
+      fgMat
     );
-    fgMesh.position.z = 0.3;
+    fgMesh.position.z = 0.1;
     fgMesh.visible    = false;
     scene.add(fgMesh);
 
     planesRef.current = { bg: bgMesh, fg: fgMesh };
 
-    /* ── Gyroscope — nilai dalam derajat, cap ±45° ── */
+    /* ── Gyroscope — nilai derajat, cap ±20° ── */
     let gyroX = 0, gyroY = 0, curX = 0, curY = 0;
 
     const onOrientation = (e) => {
-      const bx = Math.max(-45, Math.min(45, (e.beta  ?? 0) - 90));
-      const by = Math.max(-45, Math.min(45,  e.gamma ?? 0));
-      gyroX = bx;
-      gyroY = by;
+      gyroX = Math.max(-20, Math.min(20, (e.beta  ?? 0) - 90));
+      gyroY = Math.max(-20, Math.min(20,  e.gamma ?? 0));
     };
-
     const startGyro = () => {
       if (typeof DeviceOrientationEvent !== 'undefined' &&
           typeof DeviceOrientationEvent.requestPermission === 'function') {
@@ -173,27 +179,21 @@ export default function ParallaxScene({ onBack }) {
     const onTap = () => { startGyro(); container.removeEventListener('click', onTap); };
     container.addEventListener('click', onTap);
 
-    /*
-     * Parallax multipliers (dalam derajat):
-     *   BG  — slow:  30° → 0.24 unit
-     *   FG  — fast:  30° → 0.75 unit
-     *   diff:        30° → 0.51 unit ≈ 31% lebar layar (portrait) → jelas terlihat
-     */
-    const BG_SPEED = 0.008;
-    const FG_SPEED = 0.025;
-
     /* ── Render loop ── */
     let raf;
     const animate = () => {
       raf = requestAnimationFrame(animate);
 
-      curX += (gyroX - curX) * 0.1;
-      curY += (gyroY - curY) * 0.1;
+      // Lerp lebih lambat → lebih stabil, tidak liar
+      curX += (gyroX - curX) * 0.05;
+      curY += (gyroY - curY) * 0.05;
 
-      bgMesh.position.x =  curY * BG_SPEED;
-      bgMesh.position.y = -curX * BG_SPEED;
-      fgMesh.position.x =  curY * FG_SPEED;
-      fgMesh.position.y = -curX * FG_SPEED;
+      // BG: pakai texture.offset (MeshBasicMaterial auto-apply matrix)
+      bgTex.offset.x = -curY * BG_UV;
+      bgTex.offset.y =  curX * BG_UV;
+
+      // FG: pakai shader uniform (ShaderMaterial tidak auto-apply texture matrix)
+      fgMat.uniforms.uOffset.value.set(-curY * FG_UV, curX * FG_UV);
 
       renderer.render(scene, camera);
     };
@@ -212,7 +212,6 @@ export default function ParallaxScene({ onBack }) {
       });
 
       const anchor = mindarThree.addAnchor(0);
-
       anchor.onTargetFound = () => {
         bgMesh.visible = true;
         fgMesh.visible = true;
@@ -229,7 +228,6 @@ export default function ParallaxScene({ onBack }) {
       setStatus('Scanning... (arahkan ke cover album)');
       setReady(true);
 
-      /* z-index: camera feed=0, mindar canvas=1, overlay renderer=10 */
       const arVideo  = container.querySelector('video[autoplay]');
       const arCanvas = container.querySelector('canvas[data-engine]') ?? container.querySelector('canvas');
       if (arVideo)  arVideo.style.zIndex  = '0';
